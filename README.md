@@ -1,5 +1,7 @@
 # tiddl-ui
 
+English | [简体中文](README.zh-CN.md)
+
 Download tracks and videos from Tidal with max quality! `tiddl` is CLI app written in Python.
 
 > [!WARNING]
