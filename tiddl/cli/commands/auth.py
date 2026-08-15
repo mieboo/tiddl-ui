@@ -57,6 +57,11 @@ def login(
                     expires_at=auth.expires_in + int(time()),
                     user_id=str(auth.user_id),
                     country_code=auth.user.countryCode,
+                    username=(
+                        auth.user.username
+                        if isinstance(auth.user.username, str)
+                        else None
+                    ),
                 )
                 save_auth_data(auth_data)
                 status.console.print("[bold green]Logged in!")

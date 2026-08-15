@@ -1,3 +1,4 @@
+import os
 import typer
 from time import time
 from pathlib import Path
@@ -7,7 +8,7 @@ from rich.console import Console
 from tiddl.core.api import TidalClient, TidalAPI
 from tiddl.cli.config import APP_PATH
 from tiddl.core.auth import AuthAPI
-from tiddl.cli.utils.auth.core import load_auth_data, save_auth_data
+from tiddl.cli.utils.auth.core import AUTH_DATA_FILE, load_auth_data, save_auth_data
 from tiddl.cli.utils.resource import TidalResource
 
 
@@ -20,7 +21,11 @@ class ContextObject:
     debug_path: Path | None
 
     def __init__(
-        self, api_omit_cache: bool, debug_path: Path | None, console: Console
+        self,
+        api_omit_cache: bool,
+        debug_path: Path | None,
+        console: Console,
+        auth_file: Path | None = None,
     ) -> None:
         self.console = console
         self.resources = []
@@ -28,13 +33,16 @@ class ContextObject:
         self._api = None
         self.api_omit_cache = api_omit_cache
         self.debug_path = debug_path
+        self.auth_file = auth_file or (
+            AUTH_DATA_FILE if "TIDDL_AUTH_FILE" in os.environ else None
+        )
 
     @property
     def api(self):
         if self._api is not None:
             return self._api
 
-        auth_data = load_auth_data()
+        auth_data = load_auth_data(self.auth_file) if self.auth_file else load_auth_data()
 
         assert auth_data.token, "Auth Token is missing. Use `tiddl auth login`"
         assert auth_data.user_id, "User ID is missing. Use `tiddl auth login`"
@@ -47,8 +55,13 @@ class ContextObject:
             auth_response = self.auth_api.refresh_token(refresh_token)
             auth_data.token = auth_response.access_token
             auth_data.expires_at = auth_response.expires_in + int(time())
+            if isinstance(auth_response.user.username, str):
+                auth_data.username = auth_response.user.username
 
-            save_auth_data(auth_data=auth_data)
+            if self.auth_file:
+                save_auth_data(auth_data=auth_data, file=self.auth_file)
+            else:
+                save_auth_data(auth_data=auth_data)
 
             if auth_response:
                 return auth_response.access_token
@@ -57,7 +70,11 @@ class ContextObject:
 
         client = TidalClient(
             token=auth_data.token,
-            cache_name=APP_PATH / "api_cache",
+            cache_name=(
+                self.auth_file.parent / f"{self.auth_file.stem}_cache"
+                if self.auth_file
+                else APP_PATH / "api_cache"
+            ),
             omit_cache=self.api_omit_cache,
             debug_path=self.debug_path,
             on_token_expiry=on_token_expiry,

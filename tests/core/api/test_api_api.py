@@ -177,12 +177,21 @@ def test_get_track(api: TidalAPI, mock_client: MockType):
 
 
 def test_get_track_stream(api: TidalAPI, mock_client: MockType):
-    api.get_track_stream(1, "HIGH")
+    api.get_track_stream(1, "HIGH", session_id="session-1")
     mock_client.fetch.assert_called_once_with(
         TrackStream,
         "tracks/1/playbackinfopostpaywall",
-        {"audioquality": "HIGH", "playbackmode": "STREAM", "assetpresentation": "FULL"},
+        {
+            "countryCode": "US",
+            "audioquality": "HIGH",
+            "playbackmode": "STREAM",
+            "assetpresentation": "FULL",
+            "deviceType": "BROWSER",
+            "platform": "WEB",
+            "sessionId": "session-1",
+        },
         expire_after=DO_NOT_CACHE,
+        headers={"x-tidal-client-version": "2025.7.16"},
     )
 
 

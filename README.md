@@ -1,4 +1,4 @@
-# Tidal Downloader
+# tiddl-ui
 
 Download tracks and videos from Tidal with max quality! `tiddl` is CLI app written in Python.
 
@@ -41,6 +41,25 @@ pip install tiddl
 ## docker
 
 **coming soon**
+
+## Web interface
+
+Start the local web interface after installing `tiddl-ui` and `ffmpeg`:
+
+```bash
+tiddl-ui
+```
+
+Then open <http://127.0.0.1:8765>. The web server only listens on localhost by
+default. It supports Tidal device login, automatic multi-resource previews,
+per-resource quality detection, independent download tasks for multiple URLs,
+live progress and transfer speed, task logs, and per-task cancellation.
+
+The web interface can keep multiple Tidal accounts signed in at the same time.
+Each account has isolated credentials and API cache files. New download tasks
+are assigned to the enabled account with the fewest active or queued tasks, so
+10 tasks distributed across three idle accounts are assigned 4, 3, and 3. A
+task stays bound to its assigned account until it finishes.
 
 # Usage
 

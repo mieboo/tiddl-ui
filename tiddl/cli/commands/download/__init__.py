@@ -28,7 +28,7 @@ from tiddl.cli.commands.auth import refresh
 from tiddl.cli.commands.subcommands import register_subcommands
 
 
-from .downloader import Downloader
+from .downloader import Downloader, emit_web_event
 from .output import RichOutput
 
 download_command = typer.Typer(name="download")
@@ -236,6 +236,9 @@ def download_callback(
                 self.album_review = album_review
 
         async def handle_resource(resource: TidalResource):
+            resource_total = 0
+            resource_completed = 0
+
             async def handle_item(
                 item: Track | Video,
                 file_path: str,
@@ -308,6 +311,24 @@ def download_callback(
 
                 return download_path, item
 
+            async def tracked_item(*args, **kwargs):
+                nonlocal resource_total, resource_completed
+                resource_total += 1
+                emit_web_event(
+                    "resource_progress",
+                    completed=resource_completed,
+                    total=resource_total,
+                )
+                try:
+                    return await handle_item(*args, **kwargs)
+                finally:
+                    resource_completed += 1
+                    emit_web_event(
+                        "resource_progress",
+                        completed=resource_completed,
+                        total=resource_total,
+                    )
+
             async def download_album(album: Album):
                 offset = 0
                 futures = []
@@ -352,7 +373,7 @@ def download_callback(
 
                         try:
                             futures.append(
-                                handle_item(
+                                tracked_item(
                                     item=album_item.item,
                                     file_path=file_path,
                                     track_metadata=Metadata(
@@ -423,7 +444,7 @@ def download_callback(
                     if album.cover and (CONFIG.metadata.cover or save_cover):
                         cover = Cover(album.cover, size=CONFIG.cover.size)
 
-                    await handle_item(
+                    await tracked_item(
                         item=track,
                         file_path=format_template(
                             template=TEMPLATE or CONFIG.templates.track,
@@ -466,7 +487,7 @@ def download_callback(
                     else:
                         album = None
 
-                    await handle_item(
+                    await tracked_item(
                         item=video,
                         file_path=format_template(
                             template=template,
@@ -495,7 +516,7 @@ def download_callback(
                                     album = None
 
                                 futures.append(
-                                    handle_item(
+                                    tracked_item(
                                         item=mix_item.item,
                                         file_path=format_template(
                                             template=template,
@@ -597,7 +618,7 @@ def download_callback(
                                         album = None
 
                                     futures.append(
-                                        handle_item(
+                                        tracked_item(
                                             item=video,
                                             file_path=format_template(
                                                 template=template,
@@ -661,7 +682,7 @@ def download_callback(
                                     album = None
 
                                 futures.append(
-                                    handle_item(
+                                    tracked_item(
                                         item=playlist_item.item,
                                         file_path=format_template(
                                             template=template,

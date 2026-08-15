@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from logging import getLogger
 
@@ -5,14 +6,14 @@ from tiddl.cli.config import APP_PATH
 from .models import AuthData
 
 
-AUTH_DATA_FILE = APP_PATH / "auth.json"
+AUTH_DATA_FILE = Path(os.environ.get("TIDDL_AUTH_FILE", APP_PATH / "auth.json"))
 
 
 log = getLogger(__name__)
 
 
 def load_auth_data(file: Path = AUTH_DATA_FILE) -> AuthData:
-    log.debug(f"loading from '{AUTH_DATA_FILE}'")
+    log.debug(f"loading from '{file}'")
 
     try:
         file_content = file.read_text()
@@ -27,5 +28,7 @@ def load_auth_data(file: Path = AUTH_DATA_FILE) -> AuthData:
 def save_auth_data(auth_data: AuthData, file: Path = AUTH_DATA_FILE):
     log.debug(f"saving to '{file}'")
 
+    file.parent.mkdir(parents=True, exist_ok=True)
     with file.open("w") as f:
         f.write(auth_data.model_dump_json())
+    file.chmod(0o600)

@@ -70,6 +70,7 @@ class TidalClient:
         endpoint: str,
         params: dict[str, Any] = {},
         expire_after: int = NEVER_EXPIRE,
+        headers: dict[str, str] | None = None,
         _attempt: int = 1,
     ) -> T:
         """
@@ -77,9 +78,10 @@ class TidalClient:
         and parse it into the given Pydantic model.
         """
 
-        res = self.session.get(
-            f"{API_URL}/{endpoint}", params=params, expire_after=expire_after
-        )
+        request_kwargs = {"params": params, "expire_after": expire_after}
+        if headers:
+            request_kwargs["headers"] = headers
+        res = self.session.get(f"{API_URL}/{endpoint}", **request_kwargs)
 
         if res.status_code == 401 and self.on_token_expiry:
             token = self.on_token_expiry()
@@ -92,6 +94,7 @@ class TidalClient:
                 endpoint=endpoint,
                 params=params,
                 expire_after=expire_after,
+                headers=headers,
                 _attempt=MAX_RETRIES - 1,
             )
 
@@ -118,6 +121,7 @@ class TidalClient:
                 endpoint=endpoint,
                 params=params,
                 expire_after=expire_after,
+                headers=headers,
                 _attempt=_attempt + 1,
             )
 

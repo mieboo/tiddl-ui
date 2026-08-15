@@ -3,9 +3,9 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tiddl"
+name = "tiddl-ui"
 version = "3.4.4"
-description = "Download Tidal tracks with CLI downloader."
+description = "A local web interface for searching, previewing, and downloading Tidal resources."
 readme = "README.md"
 requires-python = ">=3.13"
 authors = [{ name = "oskvr37" }]
@@ -23,13 +23,17 @@ dependencies = [
   "requests>=2.32.5",
   "requests-cache>=1.2.1",
   "typer>=0.20.0",
+  "fastapi>=0.116.0",
+  "uvicorn>=0.35.0",
 ]
 
 [project.urls]
-homepage = "https://github.com/oskvr37/tiddl"
+homepage = "https://github.com/mieboo/tiddl"
 
 [project.scripts]
 tiddl = "tiddl.cli.app:app"
+tiddl-ui = "tiddl.web.app:main"
+tiddl-web = "tiddl.web.app:main"
 
 [tool.coverage.run]
 omit = ["*/models/*", "*/models.py"]

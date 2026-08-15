@@ -1,5 +1,8 @@
 import asyncio
+import json
+import os
 import shutil
+import time
 from logging import getLogger
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -26,6 +29,14 @@ from .output import RichOutput
 log = getLogger(__name__)
 
 CHUNK_SIZE = 1024**2
+
+
+def emit_web_event(event: str, **data) -> None:
+    if os.environ.get("TIDDL_WEB_EVENTS") == "1":
+        print(
+            "TIDDL_EVENT " + json.dumps({"event": event, **data}, ensure_ascii=False),
+            flush=True,
+        )
 
 track_qualities_color: dict[TrackQuality, str] = {
     "LOW": "[gray]96 kbps",
@@ -202,6 +213,12 @@ class Downloader:
             task_id = self.rich_output.download_start(
                 f"[{vibrant_color}]{item.title} {quality_string}"
             )
+            emit_web_event(
+                "download_start",
+                item_id=str(item.id),
+                title=item.title,
+                segment_count=len(urls),
+            )
 
             download_path.parent.mkdir(exist_ok=True, parents=True)
 
@@ -213,15 +230,63 @@ class Downloader:
             ) as tmp:
                 async with aiohttp.ClientSession(trust_env=True) as session:
                     async with aiofiles.open(tmp.name, "wb") as f:
-                        for url in urls:
+                        downloaded = 0
+                        last_bytes = 0
+                        last_update = time.monotonic()
+                        for segment_index, url in enumerate(urls):
                             async with session.get(url) as resp:
+                                resp.raise_for_status()
+                                content_length = resp.content_length
+                                exact_total = content_length if len(urls) == 1 else None
                                 async for chunk in resp.content.iter_chunked(
                                     CHUNK_SIZE
                                 ):
                                     await f.write(chunk)
+                                    downloaded += len(chunk)
                                     self.rich_output.download_advance(
                                         task_id, size=len(chunk)
                                     )
+                                    now = time.monotonic()
+                                    elapsed = now - last_update
+                                    if elapsed >= 0.25:
+                                        speed = (downloaded - last_bytes) / elapsed
+                                        if exact_total:
+                                            progress = min(downloaded / exact_total, 1.0)
+                                        else:
+                                            segment_progress = (
+                                                resp.content.total_bytes / content_length
+                                                if content_length
+                                                else 0
+                                            )
+                                            progress = min(
+                                                (segment_index + segment_progress) / len(urls),
+                                                0.99,
+                                            )
+                                        emit_web_event(
+                                            "download_progress",
+                                            item_id=str(item.id),
+                                            title=item.title,
+                                            downloaded=downloaded,
+                                            total=exact_total,
+                                            speed=speed,
+                                            progress=progress,
+                                            segment=segment_index + 1,
+                                            segment_count=len(urls),
+                                        )
+                                        last_bytes = downloaded
+                                        last_update = now
+
+                        emit_web_event(
+                            "download_progress",
+                            item_id=str(item.id),
+                            title=item.title,
+                            downloaded=downloaded,
+                            total=downloaded,
+                            speed=0,
+                            progress=1.0,
+                            segment=len(urls),
+                            segment_count=len(urls),
+                        )
 
             shutil.move(tmp.name, download_path)
 

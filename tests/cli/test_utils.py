@@ -65,6 +65,7 @@ urls_data = [
     ("https://listen.tidal.com/track/12345", "track", "12345"),
     ("https://listen.tidal.com/track/12345/", "track", "12345"),
     ("https://listen.tidal.com/track/12345/u", "track", "12345"),
+    ("https://tidal.com/album/321/track/12345", "track", "12345"),
 ]
 
 

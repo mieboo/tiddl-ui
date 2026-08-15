@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Player - tiddl-ui</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/player.css">
+</head>
+<body class="player-body">
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark"><i data-lucide="audio-lines"></i></span><span>tiddl-ui</span></a>
+    <nav class="player-nav">
+      <a href="/" data-i18n="downloads">Downloads</a><span data-i18n="player">Player</span>
+    </nav>
+    <div class="top-actions">
+      <label class="language-control"><i data-lucide="languages"></i><select id="languageSelect"><option value="en">English</option><option value="zh">中文</option></select></label>
+      <button id="themeButton" class="icon-button bordered" type="button"><i data-lucide="sun"></i></button>
+    </div>
+  </header>
+  <main class="player-shell">
+    <section class="library-panel">
+      <div class="queue-head"><h1 data-i18n="playlist">Playlist</h1><span id="queueCount">0</span><button id="clearQueue" class="icon-button" type="button" data-title="clear" title="Clear playlist"><i data-lucide="trash-2"></i></button></div>
+      <div class="player-resource-input">
+        <div class="player-search-wrap">
+          <i data-lucide="search"></i><input id="playerSearch" type="search" autocomplete="off" data-placeholder="searchPlaceholder" placeholder="Search tracks and albums, or paste a Tidal link">
+          <span id="searchSpinner" hidden><i data-lucide="loader-circle"></i></span>
+        </div>
+        <div id="playerSearchResults" class="player-search-results" hidden></div>
+        <div id="playerQueue" class="player-queue"></div>
+        <div id="queueEmpty" class="player-empty"><i data-lucide="list-music"></i><span data-i18n="empty">Search or paste a track or album link</span></div>
+      </div>
+    </section>
+    <section class="now-panel">
+      <div class="now-art"><img id="nowCover" alt=""><span id="coverPlaceholder"><i data-lucide="music-2"></i></span></div>
+      <div class="now-copy"><h2 id="nowTitle" data-i18n="nothingPlaying">Nothing playing</h2><p id="nowArtist">tiddl-ui</p></div>
+      <div id="playerError" class="player-error" role="status"></div>
+      <div class="seek-row"><span id="elapsed">0:00</span><input id="seek" type="range" min="0" max="1000" value="0"><span id="duration">0:00</span></div>
+      <div class="transport">
+        <button id="shuffle" class="icon-button" type="button" data-title="shuffle"><i data-lucide="shuffle"></i></button>
+        <button id="previous" class="icon-button" type="button" data-title="previous"><i data-lucide="skip-back"></i></button>
+        <button id="play" class="play-button" type="button" data-title="play"><i data-lucide="play"></i></button>
+        <button id="next" class="icon-button" type="button" data-title="next"><i data-lucide="skip-forward"></i></button>
+        <button id="repeat" class="icon-button" type="button" data-title="repeat"><i data-lucide="repeat"></i><small></small></button>
+      </div>
+      <div class="play-options">
+        <div class="play-quality"><i data-lucide="gauge"></i><div id="qualityControl" class="preview-specs quality-specs"></div></div>
+        <button id="playerSettingsButton" class="icon-button player-settings-button" type="button" data-title="settings" title="Player settings"><i data-lucide="settings-2"></i></button>
+        <div class="volume"><button id="mute" class="icon-button" type="button" data-title="mute"><i data-lucide="volume-2"></i></button><input id="volume" type="range" min="0" max="1" value="0.8" step="0.01"></div>
+      </div>
+      <audio id="audio" preload="metadata"></audio>
+    </section>
+    <aside class="lyrics-panel"><div class="lyrics-head"><h2 data-i18n="lyrics">Lyrics</h2></div><div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div></aside>
+  </main>
+  <dialog id="playerSettingsDialog" class="player-settings-dialog">
+    <div class="dialog-head"><h2 data-i18n="settings">Player settings</h2><button class="icon-button" data-close-settings type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
+    <div class="player-settings-content">
+      <label class="toggle-field"><input id="playerDefaultHighest" type="checkbox"><span class="toggle"></span><span data-i18n="defaultHighest">Play the highest quality by default</span></label>
+      <label class="toggle-field"><input id="playerDefaultAtmos" type="checkbox"><span class="toggle"></span><span data-i18n="defaultAtmos">Enable Atmos by default</span></label>
+    </div>
+  </dialog>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="/static/player.js"></script>
+</body>
+</html>

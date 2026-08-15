@@ -222,16 +222,25 @@ class TidalAPI:
             expire_after=3600,
         )
 
-    def get_track_stream(self, track_id: ID, quality: TrackQuality):
+    def get_track_stream(
+        self, track_id: ID, quality: TrackQuality, session_id: str | None = None
+    ):
+        params = {
+            "countryCode": self.country_code,
+            "audioquality": quality,
+            "playbackmode": "STREAM",
+            "assetpresentation": "FULL",
+            "deviceType": "BROWSER",
+            "platform": "WEB",
+        }
+        if session_id:
+            params["sessionId"] = session_id
         return self.client.fetch(
             TrackStream,
             f"tracks/{track_id}/playbackinfopostpaywall",
-            {
-                "audioquality": quality,
-                "playbackmode": "STREAM",
-                "assetpresentation": "FULL",
-            },
+            params,
             expire_after=DO_NOT_CACHE,
+            headers={"x-tidal-client-version": "2025.7.16"},
         )
 
     def get_video(self, video_id: ID):

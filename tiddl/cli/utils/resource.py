@@ -27,16 +27,19 @@ class TidalResource(BaseModel):
 
         segments = [seg for seg in urlparse(string).path.split("/") if seg]
 
-        resource_type = next(
-            (seg for seg in segments if seg in get_args(ResourceTypeLiteral)), None
+        resource_types = get_args(ResourceTypeLiteral)
+        resource_index = next(
+            (index for index in range(len(segments) - 1, -1, -1) if segments[index] in resource_types),
+            None,
         )
+        resource_type = segments[resource_index] if resource_index is not None else None
 
         if not resource_type:
             raise ValueError(f"Invalid resource type: {resource_type}")
 
         try:
-            resource_id = segments[segments.index(resource_type) + 1]
-        except IndexError:
+            resource_id = segments[resource_index + 1]  # type: ignore[operator]
+        except (IndexError, TypeError):
             raise ValueError(f"No resource ID found {resource_type=} {string=}")
 
         digit_resource_types: list[ResourceTypeLiteral] = [
