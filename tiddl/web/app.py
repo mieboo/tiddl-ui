@@ -1002,16 +1002,32 @@ async def proxy_player_stream(session_id: str, range_header: str | None = Header
         player_sessions.pop(session_id, None)
         raise HTTPException(status_code=410, detail="Playback session expired. Start the track again.")
     headers = {"Range": range_header} if range_header else {}
-    client = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None, sock_connect=15, sock_read=45))
-    try:
-        upstream = await client.get(session.url, headers=headers, allow_redirects=True)
-    except Exception as exc:
-        await client.close()
-        raise HTTPException(status_code=502, detail=f"Unable to reach the Tidal stream: {exc}") from exc
-    if upstream.status not in {200, 206}:
+    timeout = aiohttp.ClientTimeout(total=None, sock_connect=15, sock_read=45)
+    upstream = None
+    client = None
+    last_error: Exception | None = None
+    for attempt in range(2):
+        client = aiohttp.ClientSession(timeout=timeout)
+        try:
+            upstream = await client.get(session.url, headers=headers, allow_redirects=True)
+        except Exception as exc:
+            last_error = exc
+            await client.close()
+            client = None
+            continue
+        if upstream.status in {200, 206}:
+            break
+        status = upstream.status
         upstream.release()
         await client.close()
-        raise HTTPException(status_code=502, detail=f"Tidal stream returned HTTP {upstream.status}.")
+        client = None
+        upstream = None
+        if status not in {403, 408, 429, 500, 502, 503, 504}:
+            raise HTTPException(status_code=502, detail=f"Tidal stream returned HTTP {status}.")
+        if attempt == 0:
+            await asyncio.sleep(0.4)
+    else:
+        raise HTTPException(status_code=502, detail=f"Tidal stream returned HTTP {upstream.status}." if upstream else f"Unable to reach the Tidal stream: {last_error}")
 
     async def body():
         try:
