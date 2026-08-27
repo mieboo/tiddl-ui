@@ -1,4 +1,5 @@
 import asyncio
+import time
 from pydantic import ValidationError
 import pytest
 from types import SimpleNamespace
@@ -12,9 +13,12 @@ from tiddl.web.app import (
     handle_output_line,
     image_url,
     player_quality_tiers,
+    player_sessions,
+    player_speed,
     search_result,
     select_account,
     AccountHealth,
+    PlayerSession,
     account_health,
     available_account_ids,
     check_account_health,
@@ -27,6 +31,47 @@ def test_player_quality_tiers_fall_back_from_requested_ceiling():
         "HI_RES_LOSSLESS", "LOSSLESS", "HIGH", "LOW"
     ]
     assert player_quality_tiers("HIGH") == ["HIGH", "LOW"]
+
+
+def make_player_session(session_id: str, expired: bool = False, bytes_served: int = 0) -> PlayerSession:
+    return PlayerSession(
+        id=session_id,
+        track_id="42",
+        account_id="a" * 10,
+        url="https://stream.test/audio",
+        mime_type="audio/flac",
+        codec="flac",
+        quality="LOSSLESS",
+        audio_mode="STEREO",
+        bit_depth=16,
+        sample_rate=44100,
+        expires_at=time.time() - 1 if expired else time.time() + 60,
+        bytes=bytes_served,
+    )
+
+
+def test_player_speed_reports_session_bytes_and_expiry():
+    live = make_player_session("alive1", bytes_served=2048)
+    player_sessions[live.id] = live
+    try:
+        assert asyncio.run(player_speed("alive1")) == {"bytes": 2048, "expired": False}
+    finally:
+        player_sessions.pop("alive1", None)
+
+    finished = make_player_session("done1", expired=True, bytes_served=4096)
+    player_sessions[finished.id] = finished
+    try:
+        assert asyncio.run(player_speed("done1")) == {"bytes": 4096, "expired": True}
+    finally:
+        player_sessions.pop("done1", None)
+
+
+def test_player_speed_rejects_unknown_session():
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(player_speed("missing"))
+    assert exc.value.status_code == 404
 
 
 def test_download_request_accepts_tidal_resources():

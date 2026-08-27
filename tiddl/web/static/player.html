@@ -11,6 +11,7 @@
 <body class="player-body">
   <header class="topbar">
     <a class="brand" href="/"><span class="brand-mark"><i data-lucide="audio-lines"></i></span><span>tiddl-ui</span></a>
+    <span id="playSpeed" class="play-speed" hidden><i data-lucide="activity"></i><strong id="playSpeedValue">0 B/s</strong></span>
     <nav class="player-nav">
       <a href="/" data-i18n="downloads">Downloads</a><span data-i18n="player">Player</span>
     </nav>
@@ -21,7 +22,13 @@
   </header>
   <main class="player-shell">
     <section class="library-panel">
-      <div class="queue-head"><h1 data-i18n="playlist">Playlist</h1><span id="queueCount">0</span><button id="clearQueue" class="icon-button" type="button" data-title="clear" title="Clear playlist"><i data-lucide="trash-2"></i></button></div>
+      <div class="queue-head">
+        <div class="library-tabs">
+          <button class="library-tab active" data-library-tab="playlist" type="button"><span data-i18n="playlist">Playlist</span><span id="queueCount">0</span></button>
+          <button class="library-tab" data-library-tab="favorites" type="button"><span data-i18n="favorites">Favorites</span><span id="favCount">0</span></button>
+        </div>
+        <button id="clearQueue" class="icon-button" type="button" data-title="clear" title="Clear playlist"><i data-lucide="trash-2"></i></button>
+      </div>
       <div class="player-resource-input">
         <div class="player-search-wrap">
           <i data-lucide="search"></i><input id="playerSearch" type="search" autocomplete="off" data-placeholder="searchPlaceholder" placeholder="Search tracks and albums, or paste a Tidal link">
@@ -30,11 +37,17 @@
         <div id="playerSearchResults" class="player-search-results" hidden></div>
         <div id="playerQueue" class="player-queue"></div>
         <div id="queueEmpty" class="player-empty"><i data-lucide="list-music"></i><span data-i18n="empty">Search or paste a track or album link</span></div>
+        <div id="playerFavorites" class="player-queue" hidden></div>
+        <div id="favEmpty" class="player-empty" hidden><i data-lucide="heart"></i><span data-i18n="favEmpty">Tracks you favorite will appear here</span></div>
       </div>
     </section>
     <section class="now-panel">
       <div class="now-art"><img id="nowCover" alt=""><span id="coverPlaceholder"><i data-lucide="music-2"></i></span></div>
       <div class="now-copy"><h2 id="nowTitle" data-i18n="nothingPlaying">Nothing playing</h2><p id="nowArtist">tiddl-ui</p></div>
+      <div class="now-actions">
+        <button id="favoriteButton" class="icon-button" type="button" data-title="favorite" disabled><i data-lucide="heart"></i></button>
+        <button id="downloadButton" class="icon-button" type="button" data-title="download" disabled><i data-lucide="download"></i></button>
+      </div>
       <div id="playerError" class="player-error" role="status"></div>
       <div class="seek-row"><span id="elapsed">0:00</span><input id="seek" type="range" min="0" max="1000" value="0"><span id="duration">0:00</span></div>
       <div class="transport">
@@ -60,6 +73,7 @@
       <label class="toggle-field"><input id="playerDefaultAtmos" type="checkbox"><span class="toggle"></span><span data-i18n="defaultAtmos">Enable Atmos by default</span></label>
     </div>
   </dialog>
+  <div id="toast" class="toast" role="status"></div>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="/static/player.js"></script>
 </body>

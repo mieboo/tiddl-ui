@@ -135,6 +135,7 @@ class PlayerSession:
     bit_depth: int | None
     sample_rate: int | None
     expires_at: float
+    bytes: int = 0
 
 
 @dataclass
@@ -1009,6 +1010,7 @@ async def proxy_player_stream(session_id: str, range_header: str | None = Header
     async def body():
         try:
             async for chunk in upstream.content.iter_chunked(64 * 1024):
+                session.bytes += len(chunk)
                 yield chunk
         finally:
             upstream.release()
@@ -1021,6 +1023,14 @@ async def proxy_player_stream(session_id: str, range_header: str | None = Header
     }
     response_headers.setdefault("Accept-Ranges", "bytes")
     return StreamingResponse(body(), status_code=upstream.status, media_type=session.mime_type, headers=response_headers)
+
+
+@app.get("/api/player/speed/{session_id}")
+async def player_speed(session_id: str) -> dict:
+    session = player_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Playback session not found")
+    return {"bytes": session.bytes, "expired": session.expires_at <= time.time()}
 
 
 @app.get("/api/jobs")
