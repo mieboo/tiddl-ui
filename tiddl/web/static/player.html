@@ -44,18 +44,16 @@
     <section class="now-panel">
       <div class="now-art"><img id="nowCover" alt=""><span id="coverPlaceholder"><i data-lucide="music-2"></i></span></div>
       <div class="now-copy"><h2 id="nowTitle" data-i18n="nothingPlaying">Nothing playing</h2><p id="nowArtist">tiddl-ui</p></div>
-      <div class="now-actions">
-        <button id="favoriteButton" class="icon-button" type="button" data-title="favorite" disabled><i data-lucide="heart"></i></button>
-        <button id="downloadButton" class="icon-button" type="button" data-title="download" disabled><i data-lucide="download"></i></button>
-      </div>
       <div id="playerError" class="player-error" role="status"></div>
       <div class="seek-row"><span id="elapsed">0:00</span><input id="seek" type="range" min="0" max="1000" value="0"><span id="duration">0:00</span></div>
       <div class="transport">
+        <button id="favoriteButton" class="icon-button" type="button" data-title="favorite" disabled><i data-lucide="heart"></i></button>
         <button id="shuffle" class="icon-button" type="button" data-title="shuffle"><i data-lucide="shuffle"></i></button>
         <button id="previous" class="icon-button" type="button" data-title="previous"><i data-lucide="skip-back"></i></button>
         <button id="play" class="play-button" type="button" data-title="play"><i data-lucide="play"></i></button>
         <button id="next" class="icon-button" type="button" data-title="next"><i data-lucide="skip-forward"></i></button>
         <button id="repeat" class="icon-button" type="button" data-title="repeat"><i data-lucide="repeat"></i><small></small></button>
+        <button id="downloadButton" class="icon-button" type="button" data-title="download" disabled><i data-lucide="download"></i></button>
       </div>
       <div class="play-options">
         <div class="play-quality"><i data-lucide="gauge"></i><div id="qualityControl" class="preview-specs quality-specs"></div></div>

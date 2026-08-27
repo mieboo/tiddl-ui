@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import aiohttp
 from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 import uvicorn
@@ -789,14 +789,20 @@ def download_command(
     return command
 
 
+def page_response(name: str) -> HTMLResponse:
+    html = (STATIC_DIR / name).read_text(encoding="utf-8")
+    version = str(int(max(path.stat().st_mtime for path in STATIC_DIR.iterdir() if path.is_file())))
+    return HTMLResponse(re.sub(r'(src|href)="(/static/[^"]+)"', rf'\1="\2?v={version}"', html))
+
+
 @app.get("/")
-async def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+async def index() -> HTMLResponse:
+    return page_response("index.html")
 
 
 @app.get("/player")
-async def player_page() -> FileResponse:
-    return FileResponse(STATIC_DIR / "player.html")
+async def player_page() -> HTMLResponse:
+    return page_response("player.html")
 
 
 @app.get("/api/status")

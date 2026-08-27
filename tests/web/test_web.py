@@ -74,6 +74,18 @@ def test_player_speed_rejects_unknown_session():
     assert exc.value.status_code == 404
 
 
+def test_page_responses_version_static_assets():
+    from tiddl.web.app import page_response
+
+    player_html = page_response("player.html").body.decode()
+    index_html = page_response("index.html").body.decode()
+
+    assert "/static/player.js?v=" in player_html
+    assert "/static/app.js?v=" in index_html
+    assert '"/static/player.js"' not in player_html
+    assert '"/static/styles.css"' not in index_html
+
+
 def test_download_request_accepts_tidal_resources():
     request = DownloadRequest(
         urls=[" album/103805723 ", "https://tidal.com/browse/track/103805724"]
