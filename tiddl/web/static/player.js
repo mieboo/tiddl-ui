@@ -17,29 +17,29 @@ function singleTrackRow(track,index) { return `<button class="queue-item ${index
 function renderQueue() { const groups=[]; state.queue.forEach((track,index)=>{const key=track._sourceType==="album"?track._sourceKey:`track:${track.id}`;let group=groups.find(item=>item.key===key);if(!group){group={key,type:track._sourceType,tracks:[]};groups.push(group);}group.tracks.push({track,index});}); $("#queueCount").textContent=state.queue.length; $("#queueEmpty").hidden=state.libraryTab!=="playlist"||state.queue.length>0; $("#playerQueue").innerHTML=groups.map(group=>{if(group.type!=="album")return group.tracks.map(({track,index})=>singleTrackRow(track,index)).join("");const first=group.tracks[0].track;const encoded=encodeURIComponent(group.key);return `<details class="playlist-album preview-resource" data-album-key="${esc(encoded)}" ${state.openAlbums.has(group.key)?"open":""}><summary class="playlist-album-head preview-head">${first.cover?`<img class="preview-cover" src="${esc(first.cover)}" alt="">`:`<span class="preview-cover preview-cover-placeholder"><i data-lucide="disc-3"></i></span>`}<span class="preview-title"><strong>${esc(first.album)}</strong><span>${esc(first.artist)}</span></span><span class="preview-count">${group.tracks.length}</span><span class="queue-remove queue-fav icon-button${isFavorite("album",first.album_id)?" fav-on":""}" data-fav-album="${esc(String(first.album_id||""))}" title="Favorite"><i data-lucide="heart"></i></span><button class="icon-button preview-remove" type="button" data-remove-group="${esc(encoded)}" title="Remove"><i data-lucide="x"></i></button><i class="preview-chevron" data-lucide="chevron-down"></i></summary><div class="playlist-album-tracks">${group.tracks.map(({track,index},trackIndex)=>`<button class="playlist-track-row ${index===state.current?"active":""}" type="button" data-play="${index}"><span class="track-number">${trackIndex+1}</span><span class="track-name"><strong>${esc(track.title)}</strong><span>${esc(track.artist)}</span></span><span class="track-duration">${formatTime(track.duration)}</span></button>`).join("")}</div></details>`;}).join(""); icon(); }
 function renderResults(results) { const panel=$("#playerSearchResults"); panel.innerHTML=results.length?results.map(result=>{const[rk,rid]=result.resource.split("/");return `<button class="player-result" type="button" data-resource="${esc(result.resource)}">${result.cover?`<img src="${esc(result.cover)}" alt="">`:`<span></span>`}<span class="player-result-copy"><strong>${esc(result.title)}</strong><span>${esc(result.subtitle)}</span></span><span class="result-fav icon-button${isFavorite(rk,rid)?" fav-on":""}" data-result-fav="${rk}:${rid}" title="Favorite"><i data-lucide="heart"></i></span><span class="result-type">${t(result.type)}</span></button>`;}).join(""):`<div class="player-empty">${t("noResults")}</div>`; panel.hidden=false; }
 function plainTrack(track) { return {kind:"track",id:String(track.id),title:track.title,artist:track.artist,album:track.album,album_id:track.album_id?String(track.album_id):"",cover:track.cover,duration:track.duration,explicit:track.explicit,qualities:track.qualities?[...track.qualities]:["LOW","HIGH"],atmos:Boolean(track.atmos)}; }
-function saveFavorites() { localStorage.setItem("tiddl-player-favorites",JSON.stringify(state.favorites)); }
+function saveFavorites() { localStorage.setItem("tiddl-player-favorites",JSON.stringify(state.favorites,(key,value)=>key.startsWith("_")?undefined:value)); }
 function isFavorite(kind,id) { return state.favorites.some(entry=>entry.kind===kind&&String(entry.id)===String(id)); }
 function toggleFavoriteEntry(entry) { const index=state.favorites.findIndex(item=>item.kind===entry.kind&&String(item.id)===String(entry.id)); if(index>=0)state.favorites.splice(index,1); else state.favorites.push(entry); saveFavorites(); renderQueue(); renderFavorites(); refreshTrackActions(); }
 function toggleQueueTrackFavorite(index) { const track=state.queue[index]; if(track)toggleFavoriteEntry(plainTrack(track)); }
 function toggleQueueAlbumFavorite(albumId) { const first=state.queue.find(track=>String(track.album_id)===String(albumId)); if(!first)return; toggleFavoriteEntry({kind:"album",id:String(albumId),title:first.album,artist:first.artist,cover:first.cover}); }
-function favoriteRow(entry,index) { const album=(entry.kind||"track")==="album"; const cover=entry.cover?`<img src="${esc(entry.cover)}" alt="">`:`<span class="queue-cover-placeholder"><i data-lucide="${album?"disc-3":"music"}"></i></span>`; const copy=album?`<span class="queue-copy"><strong>${esc(entry.title)}</strong><span>${esc(entry.artist||"Tidal")} · ${t("album")}</span></span><span class="queue-duration"></span>`:`<span class="queue-copy"><strong>${esc(entry.title)}</strong><span>${esc(entry.artist)} · ${esc(entry.album||"")}</span></span><span class="queue-duration">${formatTime(entry.duration)}</span>`; return `<button class="queue-item fav-item" type="button" data-fav-play="${index}">${cover}${copy}<span class="queue-remove queue-fav icon-button fav-on" data-remove-fav="${index}" title="${t("unfavorite")}"><i data-lucide="heart"></i></span></button>`; }
+function favoriteRow(entry,index) {
+  const album=(entry.kind||"track")==="album";
+  const cover=entry.cover?`<img src="${esc(entry.cover)}" alt="">`:`<span class="queue-cover-placeholder"><i data-lucide="${album?"disc-3":"music"}"></i></span>`;
+  const copy=album?`<span class="preview-title"><strong>${esc(entry.title)}</strong><span>${esc(entry.artist||"Tidal")} · ${t("album")}</span></span>`:`<span class="queue-copy"><strong>${esc(entry.title)}</strong><span>${esc(entry.artist)} · ${esc(entry.album||"")}</span></span><span class="queue-duration">${formatTime(entry.duration)}</span>`;
+  const heart=`<span class="queue-remove queue-fav icon-button fav-on" data-remove-fav="${index}" title="${t("unfavorite")}"><i data-lucide="heart"></i></span>`;
+  if(album)return `<details class="playlist-album preview-resource fav-album" data-fav-album="${index}"><summary class="playlist-album-head preview-head fav-album-head">${cover}${copy}${heart}<i class="preview-chevron" data-lucide="chevron-down"></i></summary><div class="playlist-album-tracks" data-fav-album-tracks="${index}">${entry._tracks?entry._tracks.map(innerFavTrack).join(""):`<div class="fav-album-loading">${t("loading")}</div>`}</div></details>`;
+  return `<button class="queue-item fav-item" type="button" data-fav-play="${index}">${cover}${copy}${heart}</button>`;
+}
+function innerFavTrack(track,i) { return `<button class="playlist-track-row" type="button" data-fav-inner="${i}"><span class="track-number">${i+1}</span><span class="track-name"><strong>${esc(track.title)}</strong><span>${esc(track.artist)}</span></span><span class="track-duration">${formatTime(track.duration)}</span></button>`; }
 function renderFavorites() { const terms=(state.favFilter||"").trim().toLowerCase().split(/\s+/).filter(Boolean); const pairs=state.favorites.map((track,index)=>({track,index})).filter(({track})=>{if(!terms.length)return true; const haystack=`${track.title} ${track.artist} ${track.album}`.toLowerCase(); return terms.every(term=>haystack.includes(term));}); const noMatch=terms.length&&state.favorites.length&&!pairs.length; $("#favCount").textContent=state.favorites.length; $("#favEmpty").hidden=state.libraryTab!=="favorites"||state.favorites.length>0; $("#playerFavorites").innerHTML=noMatch?`<div class="player-empty"><i data-lucide="search-x"></i><span>${esc(t("noResults"))}</span></div>`:pairs.map(({track,index})=>favoriteRow(track,index)).join(""); icon(); }
 function showTab(tab) { state.libraryTab=tab; state.favFilter=null; $("#playerSearch").value=""; $("#playerSearchResults").hidden=true; $("#playerSearch").placeholder=t(tab==="favorites"?"searchFavorites":"searchPlaceholder"); document.querySelectorAll("[data-library-tab]").forEach(button=>button.classList.toggle("active",button.dataset.libraryTab===tab)); $("#playerQueue").hidden=tab!=="playlist"; $("#playerFavorites").hidden=tab==="playlist"; $("#clearQueue").hidden=tab!=="playlist"; renderQueue(); renderFavorites(); }
 function showToast(message) { const toast=$("#toast"); toast.textContent=message; toast.classList.add("show"); clearTimeout(state.toastTimer); state.toastTimer=setTimeout(()=>toast.classList.remove("show"),2400); }
 function addFavoriteToQueue(track) { if(state.queue.some(item=>String(item.id)===String(track.id)))return showToast(t("alreadyInQueue")),false; state.queue.push({...plainTrack(track),_sourceType:"track",_sourceKey:`track/${track.id}`}); renderQueue(); showToast(t("addedToQueue")); if(state.current<0)playIndex(state.queue.length-1); return true; }
 function flyCover(fromEl) { const tab=document.querySelector("[data-library-tab='playlist']"); const img=fromEl&&(fromEl.matches("img")?fromEl:fromEl.querySelector("img")); if(!img||!tab)return; const from=img.getBoundingClientRect(), to=tab.getBoundingClientRect(); const ghost=document.createElement("img"); ghost.src=img.src; ghost.className="fly-cover"; document.body.appendChild(ghost); const dx=(to.left+to.width/2)-(from.left+from.width/2), dy=(to.top+to.height/2)-(from.top+from.height/2); requestAnimationFrame(()=>{ghost.style.transform=`translate(${dx}px,${dy}px) scale(.16)`;ghost.style.opacity=".15";}); ghost.addEventListener("transitionend",()=>{ghost.remove();tab.classList.add("pulse");setTimeout(()=>tab.classList.remove("pulse"),320);},{once:true}); setTimeout(()=>ghost.remove(),900); }
-function favoriteToQueue(entry,row) { flyCover(row); if((entry.kind||"track")==="album")return addResource(`album/${entry.id}`); addFavoriteToQueue(entry); }
-async function playFromFavorites(entry) {
-  if((entry.kind||"track")==="album") {
-    try { const data=await api("/api/player/resource",{method:"POST",body:JSON.stringify({resource:`album/${entry.id}`})}); state.queue=data.tracks.map(track=>({...plainTrack(track),_sourceType:"album",_sourceKey:`album/${entry.id}`})); state.openAlbums.clear(); state.current=0; renderQueue(); showTab("playlist"); playIndex(0); } catch(error) { showToast(error.message); }
-    return;
-  }
-  const tracks=state.favorites.filter(item=>(item.kind||"track")==="track");
-  state.queue=tracks.map(track=>({...plainTrack(track),_sourceType:"track",_sourceKey:`track/${track.id}`}));
-  state.openAlbums.clear();
-  state.current=Math.max(0,tracks.findIndex(item=>String(item.id)===String(entry.id)));
-  renderQueue(); showTab("playlist"); playIndex(state.current);
-}
+async function loadFavoriteAlbumTracks(entry) { if(entry._tracks)return entry._tracks; try { const data=await api("/api/player/resource",{method:"POST",body:JSON.stringify({resource:`album/${entry.id}`})}); entry._tracks=data.tracks; return entry._tracks; } catch(error) { showToast(error.message); return null; } }
+async function albumToQueueNext(entry) { const tracks=await loadFavoriteAlbumTracks(entry); if(!tracks)return; const playingId=state.current>=0?String(state.queue[state.current].id):null; state.queue=state.queue.filter(track=>String(track.album_id)!==String(entry.id)); state.current=playingId?state.queue.findIndex(track=>String(track.id)===playingId):-1; const at=state.current+1; state.queue.splice(at,0,...tracks.map(track=>({...plainTrack(track),_sourceType:"album",_sourceKey:`album/${entry.id}`}))); renderQueue(); showToast(t("addedToQueue")); }
+function insertAfterCurrent(track) { const item={...plainTrack(track),_sourceType:"track",_sourceKey:`track/${track.id}`}; if(state.current<0){state.queue.push(item);renderQueue();if(state.queue.length===1)playIndex(0);return;} state.queue.splice(state.current+1,0,item); renderQueue(); }
+function playSingleFavorite(track) { const item={...plainTrack(track),_sourceType:"track",_sourceKey:`track/${track.id}`}; const existing=state.queue.findIndex(t=>String(t.id)===String(item.id)); if(existing>=0){state.queue.splice(existing,1);if(state.current>existing)state.current--;if(state.current===existing)state.current=Math.min(state.current,state.queue.length-1);} state.queue.unshift(item); state.current=state.current>=0?state.current+1:0; renderQueue(); playIndex(0); }
 function toggleFavorite() { const track=state.queue[state.current]; if(track)toggleFavoriteEntry(plainTrack(track)); }
 function updateFavoriteButton() { const track=state.queue[state.current]; const active=Boolean(track&&isFavorite("track",track.id)); const button=$("#favoriteButton"); button.disabled=!track; button.classList.toggle("fav-active",active); button.dataset.title=active?"unfavorite":"favorite"; button.title=t(active?"unfavorite":"favorite"); button.setAttribute("aria-label",button.title); button.innerHTML=`<i data-lucide="heart"></i>`; icon(); }
 function updateDownloadButton() { const button=$("#downloadButton"); button.disabled=state.current<0||state.downloadPending; }
@@ -75,8 +75,49 @@ $("#playerQueue").addEventListener("click",event=>{const qfTrack=event.target.cl
 $("#playerQueue").addEventListener("toggle",event=>{const album=event.target.closest("[data-album-key]");if(!album)return;const key=decodeURIComponent(album.dataset.albumKey);album.open?state.openAlbums.add(key):state.openAlbums.delete(key);},true);
 $("#clearQueue").addEventListener("click",()=>{audio.pause();audio.removeAttribute("src");state.queue=[];state.current=-1;state.openAlbums.clear();renderQueue();renderQualityControl();refreshTrackActions();});
 $(".queue-head").addEventListener("click",event=>{const tab=event.target.closest("[data-library-tab]");if(tab)showTab(tab.dataset.libraryTab);});
-$("#playerFavorites").addEventListener("click",event=>{const remove=event.target.closest("[data-remove-fav]");if(remove){event.stopPropagation();state.favorites.splice(Number(remove.dataset.removeFav),1);saveFavorites();renderQueue();renderFavorites();refreshTrackActions();return;}const row=event.target.closest("[data-fav-play]");if(!row)return;const entry=state.favorites[Number(row.dataset.favPlay)];if(!entry)return;if(event.detail>1){event.preventDefault();clearTimeout(state.favClickTimer);return;}clearTimeout(state.favClickTimer);state.favClickTimer=setTimeout(()=>playFromFavorites(entry),260);});
-$("#playerFavorites").addEventListener("dblclick",event=>{const row=event.target.closest("[data-fav-play]");if(!row)return;event.preventDefault();clearTimeout(state.favClickTimer);const entry=state.favorites[Number(row.dataset.favPlay)];if(entry)favoriteToQueue(entry,row);});
+$("#playerFavorites").addEventListener("click",event=>{
+  const remove=event.target.closest("[data-remove-fav]");
+  if(remove){event.stopPropagation();state.favorites.splice(Number(remove.dataset.removeFav),1);saveFavorites();renderQueue();renderFavorites();refreshTrackActions();return;}
+  const summary=event.target.closest(".fav-album summary");
+  if(summary){
+    event.preventDefault();
+    const details=summary.closest("[data-fav-album]");
+    const entry=state.favorites[Number(details.dataset.favAlbum)];
+    clearTimeout(state.favClickTimer);
+    state.favClickTimer=setTimeout(()=>{details.open=!details.open;if(details.open&&entry&&!entry._tracks){const box=details.querySelector("[data-fav-album-tracks]");loadFavoriteAlbumTracks(entry).then(tracks=>{if(tracks){box.innerHTML=tracks.map(innerFavTrack).join("");icon();}});}},260);
+    return;
+  }
+  const inner=event.target.closest("[data-fav-inner]");
+  if(inner){
+    event.preventDefault();
+    const box=inner.closest("[data-fav-album-tracks]");
+    const entry=state.favorites[Number(box.dataset.favAlbumTracks)];
+    const track=entry&&entry._tracks?entry._tracks[Number(inner.dataset.favInner)]:null;
+    if(!track)return;
+    if(event.detail>1){clearTimeout(state.favClickTimer);return;}
+    clearTimeout(state.favClickTimer);
+    state.favClickTimer=setTimeout(()=>playSingleFavorite(track),260);
+    return;
+  }
+  const row=event.target.closest("[data-fav-play]");
+  if(!row)return;
+  const entry=state.favorites[Number(row.dataset.favPlay)];
+  if(!entry)return;
+  if(event.detail>1){event.preventDefault();clearTimeout(state.favClickTimer);return;}
+  clearTimeout(state.favClickTimer);
+  state.favClickTimer=setTimeout(()=>playSingleFavorite(entry),260);
+});
+$("#playerFavorites").addEventListener("dblclick",event=>{
+  const inner=event.target.closest("[data-fav-inner]");
+  if(inner){event.preventDefault();clearTimeout(state.favClickTimer);const box=inner.closest("[data-fav-album-tracks]");const entry=state.favorites[Number(box.dataset.favAlbumTracks)];const track=entry&&entry._tracks?entry._tracks[Number(inner.dataset.favInner)]:null;if(track){flyCover(inner);insertAfterCurrent(track);}return;}
+  const summary=event.target.closest(".fav-album summary");
+  if(summary){event.preventDefault();clearTimeout(state.favClickTimer);const details=summary.closest("[data-fav-album]");const entry=state.favorites[Number(details.dataset.favAlbum)];if(entry){flyCover(summary);albumToQueueNext(entry);}return;}
+  const row=event.target.closest("[data-fav-play]");
+  if(!row)return;
+  event.preventDefault();clearTimeout(state.favClickTimer);
+  const entry=state.favorites[Number(row.dataset.favPlay)];
+  if(entry){flyCover(row);insertAfterCurrent(entry);}
+});
 $("#favoriteButton").addEventListener("click",toggleFavorite);
 $("#downloadButton").addEventListener("click",downloadCurrent);
 $("#play").addEventListener("click",()=>{if(state.current<0)return playIndex(0);audio.paused?safePlay():audio.pause();});
