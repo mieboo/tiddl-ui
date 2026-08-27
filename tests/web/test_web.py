@@ -86,6 +86,21 @@ def test_page_responses_version_static_assets():
     assert '"/static/styles.css"' not in index_html
 
 
+def test_lan_addresses_keep_only_private_ipv4(monkeypatch):
+    from tiddl.web.app import lan_addresses
+
+    monkeypatch.setattr(
+        "tiddl.web.app.candidate_ips",
+        lambda: ["127.0.0.1", "8.8.8.8", "198.18.0.1", "169.254.3.4", "192.168.1.5", "10.1.2.3", "172.20.0.1", "172.33.0.9"],
+    )
+
+    assert lan_addresses(8765) == [
+        "http://192.168.1.5:8765",
+        "http://10.1.2.3:8765",
+        "http://172.20.0.1:8765",
+    ]
+
+
 def test_download_request_accepts_tidal_resources():
     request = DownloadRequest(
         urls=[" album/103805723 ", "https://tidal.com/browse/track/103805724"]

@@ -241,6 +241,15 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
 .add-account-button { width: 100%; }
 .log-dialog { width: min(800px, calc(100vw - 32px)); }
 .log-dialog pre { margin: 0; padding: 20px; max-height: 60vh; overflow: auto; background: var(--code-bg); color: var(--text); font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+.qr-content { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+#qrCanvas { border-radius: 8px; background: #fff; padding: 8px; }
+.qr-urls { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.qr-urls a { color: var(--text); text-decoration: none; }
+.qr-urls code { display: block; border: 1px solid var(--line); border-radius: 5px; padding: 7px 10px; background: var(--head-bg); font-size: 12px; text-align: center; }
+.qr-urls a:hover code { border-color: var(--accent); }
+.qr-muted { color: var(--muted); font-size: 12px; }
+.qr-warn { width: 100%; margin: 0; color: var(--warning); font-size: 12px; text-align: center; }
+.qr-hint { margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
 @media (max-width: 980px) { .shell { grid-template-columns: 1fr; } .workspace { border-right: 0; } .activity { border-top: 1px solid var(--line); } }
 @media (max-width: 700px) { .topbar { padding: 0 18px; } .workspace { padding: 20px 18px 44px; } .advanced-grid { grid-template-columns: 1fr; } .advanced-toggles { grid-template-columns: 1fr; } .compact-field { max-width: none; } .activity { padding: 20px 18px; } .preview-head { grid-template-columns: 46px minmax(0, 1fr) 28px 16px; gap: 10px; } .preview-head .preview-cover { width: 46px; height: 46px; } .preview-specs { grid-column: 2 / 5; grid-row: 2; justify-content: flex-start; } .preview-count { display: none; } .preview-remove { grid-column: 3; grid-row: 1; } .preview-chevron { grid-column: 4; grid-row: 1; } }
 @media (max-width: 560px) { .language-control svg { display: none; } .language-control { padding-inline: 5px; } .language-control select { max-width: 72px; } #authButton span { display: none; } #authButton { width: 40px; padding: 0; } .preview-count { display: none; } .fact.path-fact { max-width: 100%; } .fact.path-fact strong { overflow: hidden; text-overflow: ellipsis; } }

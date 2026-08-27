@@ -12,6 +12,7 @@ from pathlib import Path
 import platform
 import re
 import shutil
+import socket
 import sys
 import time
 from typing import Literal
@@ -19,8 +20,8 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import aiohttp
-from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 import uvicorn
@@ -45,6 +46,49 @@ PLAYER_SESSION_TTL = 20 * 60
 ACCOUNTS_DIR = APP_PATH / "accounts"
 ACCOUNT_SETTINGS_FILE = ACCOUNTS_DIR / "settings.json"
 LEGACY_ACCOUNT_ID = "default"
+HOST = os.environ.get("TIDDL_HOST", "127.0.0.1")
+PORT = int(os.environ.get("TIDDL_PORT", "8765"))
+
+
+def candidate_ips() -> list[str]:
+    candidates = []
+    try:
+        import fcntl
+        import struct
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            for _, name in socket.if_nameindex():
+                try:
+                    packed = struct.pack("256s", name[:15].encode())
+                    candidates.append(socket.inet_ntoa(fcntl.ioctl(sock.fileno(), 0x8915, packed)[20:24]))
+                except OSError:
+                    continue
+    except (ImportError, OSError):
+        pass
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            candidates.append(sock.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            candidates.append(info[4][0])
+    except socket.gaierror:
+        pass
+    return candidates
+
+
+def lan_addresses(port: int) -> list[str]:
+    urls = []
+    for ip in candidate_ips():
+        if ip in urls or ip.startswith(("127.", "169.254.", "198.18.", "198.19.")):
+            continue
+        if not ip.startswith(("192.168.", "10.", "172.")):
+            continue
+        if ip.startswith("172.") and not 16 <= int(ip.split(".")[1]) <= 31:
+            continue
+        urls.append(f"http://{ip}:{port}")
+    return urls
 
 
 class ResourceDownloadOptions(BaseModel):
@@ -805,8 +849,27 @@ async def player_page() -> HTMLResponse:
     return page_response("player.html")
 
 
+@app.get("/manifest.webmanifest")
+async def webmanifest() -> JSONResponse:
+    return JSONResponse({
+        "name": "tiddl-ui",
+        "short_name": "tiddl",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#0b0c0e",
+        "theme_color": "#0b0c0e",
+        "icons": [
+            {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            {"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml"},
+        ],
+    })
+
+
 @app.get("/api/status")
-async def status() -> dict:
+async def status(request: Request) -> dict:
     accounts = [account_info(account_id) for account_id in account_ids()]
     enabled_accounts = [
         account
@@ -817,6 +880,7 @@ async def status() -> dict:
     disk_path = download_path
     while not disk_path.exists() and disk_path != disk_path.parent:
         disk_path = disk_path.parent
+    port = request.url.port or (443 if request.url.scheme == "https" else 80)
     return {
         "authenticated": bool(enabled_accounts),
         "country_code": enabled_accounts[0]["country_code"] if enabled_accounts else None,
@@ -826,6 +890,9 @@ async def status() -> dict:
         "disk_free": shutil.disk_usage(disk_path).free,
         "python_version": platform.python_version(),
         "version": "3.4.4",
+        "host": HOST,
+        "port": port,
+        "lan_urls": lan_addresses(port),
     }
 
 
@@ -1066,7 +1133,7 @@ async def cancel_job(job_id: str) -> dict:
 
 
 def main() -> None:
-    uvicorn.run("tiddl.web.app:app", host="127.0.0.1", port=8765, reload=False)
+    uvicorn.run("tiddl.web.app:app", host=HOST, port=PORT, reload=False)
 
 
 if __name__ == "__main__":

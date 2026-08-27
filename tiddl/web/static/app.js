@@ -79,6 +79,10 @@ const messages = {
     healthDegraded: "Unstable",
     healthUnhealthy: "Isolated",
     healthChecked: "checked {time}",
+    qrTitle: "Use on your phone",
+    qrHint: "Keep your phone on the same network, then scan the code or open a URL below.",
+    qrBindWarning: "The server currently listens on 127.0.0.1 only. Start it with TIDDL_HOST=0.0.0.0 so your phone can connect.",
+    qrNoAddress: "No LAN address detected.",
   },
   zh: {
     resourceLabel: "搜索 Tidal 或添加链接",
@@ -158,6 +162,10 @@ const messages = {
     healthDegraded: "不稳定",
     healthUnhealthy: "已隔离",
     healthChecked: "{time} 检查",
+    qrTitle: "在手机上使用",
+    qrHint: "确保手机与电脑在同一局域网，扫码或访问下方地址。",
+    qrBindWarning: "当前服务仅监听本机（127.0.0.1）。请以 TIDDL_HOST=0.0.0.0 启动，手机才能访问。",
+    qrNoAddress: "未检测到局域网地址。",
   },
 };
 
@@ -563,6 +571,24 @@ async function submitDownload(event) {
   } finally { button.disabled = false; }
 }
 
+function openQrDialog() {
+  const dialog = $("#qrDialog");
+  const status = state.status || {};
+  const urls = status.lan_urls || [];
+  $("#qrBindWarning").hidden = status.host !== "127.0.0.1";
+  $("#qrUrls").innerHTML = urls.length
+    ? urls.map((url) => `<li><a href="${escapeHtml(url)}" target="_blank" rel="noopener"><code>${escapeHtml(url)}</code></a></li>`).join("")
+    : `<li><span class="qr-muted">${escapeHtml(t("qrNoAddress"))}</span></li>`;
+  const canvas = $("#qrCanvas");
+  if (urls.length && window.QRCode) {
+    QRCode.toCanvas(canvas, urls[0], { width: 180, margin: 1, color: { dark: "#0b0c0e", light: "#ffffff" } }, (error) => { canvas.hidden = Boolean(error); });
+  } else {
+    canvas.hidden = true;
+  }
+  dialog.showModal();
+  lucide.createIcons();
+}
+
 function openLog(jobId) {
   const job = state.jobs.find((item) => item.id === jobId);
   if (!job) return;
@@ -584,6 +610,8 @@ function applyLocale() {
   $("#themeButton").setAttribute("aria-label", t("switchTheme"));
   $("#refreshButton").title = t("refreshTasks");
   $("#refreshButton").setAttribute("aria-label", t("refreshTasks"));
+  $("#qrButton").title = t("qrTitle");
+  $("#qrButton").setAttribute("aria-label", t("qrTitle"));
   $("#urls").placeholder = t("searchPlaceholder");
   $("#advancedButton").title = t("advanced");
   $("#advancedButton").setAttribute("aria-label", t("advanced"));
@@ -617,6 +645,8 @@ async function refreshAll() {
 
 $("#downloadForm").addEventListener("submit", submitDownload);
 $("#urls").addEventListener("input", scheduleInputAction);
+$("#qrButton").addEventListener("click", openQrDialog);
+$("[data-close-qr]").addEventListener("click", () => $("#qrDialog").close());
 $("#authButton").addEventListener("click", openAuth);
 $("#advancedButton").addEventListener("click", () => $("#advancedDialog").showModal());
 $("#refreshButton").addEventListener("click", refreshAll);

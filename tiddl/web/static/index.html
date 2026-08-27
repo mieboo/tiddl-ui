@@ -3,8 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0c0e">
   <title>tiddl-ui</title>
-  <link rel="icon" href="data:,">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -15,6 +18,7 @@
     </a>
     <div class="top-actions">
       <a class="icon-button bordered" href="/player" aria-label="Player" title="Player"><i data-lucide="circle-play"></i></a>
+      <button id="qrButton" class="icon-button bordered" type="button" aria-label="Use on phone" title="Use on phone"><i data-lucide="smartphone"></i></button>
       <label class="language-control" aria-label="Interface language">
         <i data-lucide="languages"></i>
         <select id="languageSelect">
@@ -126,7 +130,21 @@
     <pre id="logOutput"></pre>
   </dialog>
 
+  <dialog id="qrDialog">
+    <div class="dialog-head">
+      <h2 data-i18n="qrTitle">Use on your phone</h2>
+      <button class="icon-button" data-close-qr type="button" aria-label="Close"><i data-lucide="x"></i></button>
+    </div>
+    <div class="dialog-content qr-content">
+      <canvas id="qrCanvas" width="180" height="180"></canvas>
+      <p id="qrBindWarning" class="qr-warn" hidden data-i18n="qrBindWarning"></p>
+      <ul id="qrUrls" class="qr-urls"></ul>
+      <p class="qr-hint" data-i18n="qrHint"></p>
+    </div>
+  </dialog>
+
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
