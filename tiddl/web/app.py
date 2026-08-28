@@ -847,7 +847,8 @@ def download_command(
 def page_response(name: str) -> HTMLResponse:
     html = (STATIC_DIR / name).read_text(encoding="utf-8")
     version = str(int(max(path.stat().st_mtime for path in STATIC_DIR.iterdir() if path.is_file())))
-    return HTMLResponse(re.sub(r'(src|href)="(/static/[^"]+)"', rf'\1="\2?v={version}"', html))
+    html = re.sub(r'(src|href)="(/static/[^"]+)"', rf'\1="\2?v={version}"', html)
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/")
