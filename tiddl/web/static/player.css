@@ -15,6 +15,7 @@
 .player-result, .queue-item { width: 100%; display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 10px; border: 0; color: var(--text); text-align: left; }
 .player-result { grid-template-columns: 42px minmax(0,1fr) auto auto; padding: 7px; background: transparent; border-radius: 5px; }
 .player-result:hover { background: transparent; }
+.player-result.selected { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .player-result img { width: 42px; height: 42px; object-fit: cover; border-radius: 4px; background: var(--surface-2); }
 .player-result-copy, .queue-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .player-result-copy strong, .player-result-copy span, .queue-copy strong, .queue-copy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -54,7 +55,7 @@
 .queue-item img, .queue-cover-placeholder { width: 50px; height: 50px; display: grid; place-items: center; object-fit: cover; border-radius: 5px; background: var(--surface-2); color: var(--muted); }
 .queue-cover-placeholder svg { width: 19px; }
 .queue-item:hover { background: transparent; }
-.queue-item.active { background: var(--head-hover); }
+.queue-item.active, .queue-item.selected { background: color-mix(in srgb, var(--accent) 12%, var(--head-bg)); }
 .queue-item.active strong { color: var(--accent); }
 .queue-duration, .playlist-album-head .preview-count { color: var(--muted); font-size: 10px; width: 28px; min-width: 28px; text-align: center; overflow: hidden; font-variant-numeric: tabular-nums; }
 .queue-remove { opacity: 1; width: 28px; min-width: 28px; height: 28px; justify-content: center; }
