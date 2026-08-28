@@ -30,12 +30,12 @@
           <button class="library-tab active" data-library-tab="playlist" type="button"><span data-i18n="playlist">Playlist</span><span class="tab-count" id="queueCount">0</span></button>
           <button class="library-tab" data-library-tab="favorites" type="button"><span data-i18n="favorites">Favorites</span><span class="tab-count" id="favCount">0</span></button>
           <button class="library-tab" data-library-tab="following" type="button"><span data-i18n="following">Following</span><span class="tab-count" id="followCount">0</span></button>
-        </div>
-        <button id="clearQueue" class="icon-button" type="button" data-title="clear" title="Clear playlist"><i data-lucide="trash-2"></i></button>
+</div>
       </div>
       <div class="player-resource-input">
+        <span class="queue-remove" id="clearQueue" data-title="clear"><i data-lucide="trash-2"></i></span>
         <div class="player-search-wrap">
-          <i data-lucide="search"></i><input id="playerSearch" type="search" autocomplete="off" data-placeholder="searchPlaceholder" placeholder="Search tracks and albums, or paste a Tidal link">
+          <i data-lucide="search"></i><input id="playerSearch" type="search" data-placeholder="searchPlaceholder" placeholder="Search tracks and albums, or paste a Tidal link">
           <span id="searchSpinner" hidden><i data-lucide="loader-circle"></i></span>
         </div>
         <div id="playerSearchResults" class="player-search-results" hidden></div>
