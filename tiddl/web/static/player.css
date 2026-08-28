@@ -34,7 +34,8 @@
 .queue-head button { margin-left: auto; }
 .player-queue { min-height: 0; flex: 1; overflow-y: auto; }
 .queue-item { grid-template-columns: 50px minmax(0,1fr) 46px 28px 28px; min-height: 66px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--head-bg); }
-.queue-item .queue-remove { width: 28px; min-width: 28px; height: 28px; }
+.queue-item .queue-remove, .playlist-album-head .queue-remove { width: 28px; min-width: 28px; height: 28px; }
+@media (max-width: 700px) { .playlist-album-head.preview-head { grid-template-columns: 46px minmax(0,1fr) 46px 28px 28px; } .playlist-album-head .preview-count { display: block; } }
 .fav-item { grid-template-columns: 50px minmax(0,1fr) 46px 28px 28px 28px; }
 .fav-actions { display: contents; }
 .fav-actions .icon-button:hover { color: var(--accent); }
