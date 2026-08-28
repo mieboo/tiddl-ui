@@ -34,7 +34,7 @@
 #clearQueue { align-self: center; }
 .queue-head button { margin-left: auto; }
 .player-queue { min-height: 0; flex: 1; overflow-y: auto; }
-.queue-item { grid-template-columns: 50px minmax(0,1fr) 28px 28px 28px 28px; min-height: 66px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--head-bg); }
+.queue-item { grid-template-columns: 50px minmax(0,1fr) 28px 28px 28px 28px; min-height: 66px; padding: 8px 10px; background: var(--head-bg); }
 
 @media (max-width: 700px) { .playlist-album-head.preview-head { grid-template-columns: 46px minmax(0,1fr) 28px 28px 28px 28px; } .playlist-album-head .preview-count { display: block; } }
 .fav-item { grid-template-columns: 50px minmax(0,1fr) 28px 28px 28px 28px; }
@@ -59,7 +59,7 @@
 .queue-item.active strong { color: var(--accent); }
 .queue-duration, .playlist-album-head .preview-count { color: var(--muted); font-size: 10px; width: 28px; min-width: 28px; text-align: center; overflow: hidden; font-variant-numeric: tabular-nums; }
 .queue-remove { opacity: 1; width: 28px; min-width: 28px; height: 28px; justify-content: center; }
-.playlist-album { border-bottom: 1px solid var(--line); }
+.playlist-album { border-bottom: 0; }
 .playlist-album-head.preview-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px 28px; gap: 10px; min-height: 66px; padding: 8px 10px; }
 .fav-album .playlist-album-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px 28px; }
 .playlist-album-head .preview-chevron { display: none; width: 0; min-width: 0; margin: 0; }
@@ -107,6 +107,9 @@
 .playlist-track-row.active { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 .playlist-track-row.active .track-name strong { color: var(--accent); }
 .playlist-track-row .track-number { text-align: center; }
+
+#playerQueue > * + *, #playerFavorites > * + * { border-top: 1px solid var(--line); }
+#playerQueue > * + *, #playerFavorites > * + * { border-bottom: 0; }
 .player-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 12px; text-align: center; }
 .player-empty svg { width: 26px; }
 .now-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; padding: 28px clamp(28px,5vw,76px) 18px; overflow: hidden; }
