@@ -92,7 +92,8 @@
 .playlist-album-head .preview-title strong { font-size: 13px; }
 .playlist-album-head .preview-title span { font-size: 11px; }
 .playlist-album-head .preview-count { font-size: 10px; }
-.playlist-album-tracks { max-height: 330px; overflow-y: auto; background: var(--surface); }
+.playlist-album-tracks { max-height: 330px; overflow-y: auto; scrollbar-width: none; background: var(--surface); }
+.playlist-album-tracks::-webkit-scrollbar { display: none; }
 .playlist-track-row { width: 100%; min-height: 43px; padding: 7px 12px; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 9px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; }
 .playlist-track-row:hover { background: transparent; }
 .playlist-track-row.active { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
