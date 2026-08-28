@@ -250,7 +250,7 @@ async def app_lifespan(_app: FastAPI):
             await health_monitor_task
 
 
-app = FastAPI(title="tiddl-ui", docs_url=None, redoc_url=None, lifespan=app_lifespan)
+app = FastAPI(title="Abducted Tidal Player", docs_url=None, redoc_url=None, lifespan=app_lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 jobs: dict[str, Job] = {}
 job_order: deque[str] = deque(maxlen=50)
@@ -864,8 +864,8 @@ async def player_page() -> HTMLResponse:
 @app.get("/manifest.webmanifest")
 async def webmanifest() -> JSONResponse:
     return JSONResponse({
-        "name": "tiddl-ui",
-        "short_name": "tiddl",
+        "name": "Abducted Tidal Player",
+        "short_name": "ATP",
         "start_url": "/",
         "scope": "/",
         "display": "standalone",

@@ -266,7 +266,7 @@ function renderSystemFacts() {
   const active = state.jobs.filter((job) => ["queued", "running"].includes(job.status)).length;
   $("#systemFacts").innerHTML = `
     <span class="fact ok"><i data-lucide="radio"></i><strong>${t("localServer")}</strong></span>
-    <span class="fact"><i data-lucide="package"></i><strong>tiddl-ui ${escapeHtml(state.status.version)}</strong></span>
+    <span class="fact"><i data-lucide="package"></i><strong>ATP ${escapeHtml(state.status.version)}</strong></span>
     <span class="fact"><i data-lucide="code-2"></i>${t("python")} <strong>${escapeHtml(state.status.python_version)}</strong></span>
     <span class="fact ${state.status.ffmpeg ? "ok" : "warn"}"><i data-lucide="${state.status.ffmpeg ? "circle-check" : "triangle-alert"}"></i><strong>${state.status.ffmpeg ? t("ffmpegReady") : t("ffmpegMissing")}</strong></span>
     <span class="fact ${state.status.authenticated ? "ok" : "warn"}"><i data-lucide="user-round"></i>${t("account")} <strong>${state.status.authenticated ? `${t("signedIn")}${state.status.country_code ? ` · ${escapeHtml(state.status.country_code)}` : ""}` : t("signIn")}</strong></span>
