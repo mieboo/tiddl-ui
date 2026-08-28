@@ -29,6 +29,7 @@
         <div class="library-tabs">
           <button class="library-tab active" data-library-tab="playlist" type="button"><span data-i18n="playlist">Playlist</span><span class="tab-count" id="queueCount">0</span></button>
           <button class="library-tab" data-library-tab="favorites" type="button"><span data-i18n="favorites">Favorites</span><span class="tab-count" id="favCount">0</span></button>
+          <button class="library-tab" data-library-tab="following" type="button"><span data-i18n="following">Following</span><span class="tab-count" id="followCount">0</span></button>
         </div>
         <button id="clearQueue" class="icon-button" type="button" data-title="clear" title="Clear playlist"><i data-lucide="trash-2"></i></button>
       </div>
@@ -42,6 +43,8 @@
         <div id="queueEmpty" class="player-empty"><i data-lucide="list-music"></i><span data-i18n="empty">Search or paste a track or album link</span></div>
         <div id="playerFavorites" class="player-queue" hidden></div>
         <div id="favEmpty" class="player-empty" hidden><i data-lucide="heart"></i><span data-i18n="favEmpty">Tracks you favorite will appear here</span></div>
+        <div id="playerFollowing" class="player-queue" hidden></div>
+        <div id="followEmpty" class="player-empty" hidden><i data-lucide="user-round-plus"></i><span data-i18n="followEmpty">Artists you follow will appear here</span></div>
       </div>
     </section>
     <section class="now-panel">

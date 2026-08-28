@@ -194,3 +194,9 @@ input[type="range"] { height: 20px; padding: 0; border: 0; box-shadow: none; acc
 .copy-link { cursor: pointer; }
 .copy-link:hover { color: var(--accent); text-decoration: underline; }
 .preview-title strong.copy-link:hover { text-decoration: underline; }
+
+.follow-button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; margin-left: auto; border: 1px solid var(--line); border-radius: 15px; background: var(--head-bg); color: var(--muted); font-size: 12px; font-weight: 650; transition: color .12s, border-color .12s; }
+.follow-button svg { width: 14px; }
+.follow-button:hover { color: var(--accent); border-color: var(--accent); }
+.follow-button.following { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.follow-item { grid-template-columns: 50px minmax(0,1fr) 28px; }
