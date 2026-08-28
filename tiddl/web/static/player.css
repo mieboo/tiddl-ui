@@ -34,9 +34,9 @@
 #clearQueue { align-self: center; }
 .queue-head button { margin-left: auto; }
 .player-queue { min-height: 0; flex: 1; overflow-y: auto; }
-.queue-item { grid-template-columns: 50px minmax(0,1fr) 28px 28px 28px; min-height: 66px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--head-bg); }
+.queue-item { grid-template-columns: 50px minmax(0,1fr) 28px 28px 28px 28px; min-height: 66px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--head-bg); }
 
-@media (max-width: 700px) { .playlist-album-head.preview-head { grid-template-columns: 46px minmax(0,1fr) 28px 28px 28px; } .playlist-album-head .preview-count { display: block; } }
+@media (max-width: 700px) { .playlist-album-head.preview-head { grid-template-columns: 46px minmax(0,1fr) 28px 28px 28px 28px; } .playlist-album-head .preview-count { display: block; } }
 .fav-item { grid-template-columns: 50px minmax(0,1fr) 28px 28px 28px 28px; }
 .fav-actions { display: contents; }
 .fav-actions .icon-button:hover { color: var(--accent); }
@@ -60,9 +60,9 @@
 .queue-duration, .playlist-album-head .preview-count { color: var(--muted); font-size: 10px; width: 28px; min-width: 28px; text-align: center; overflow: hidden; font-variant-numeric: tabular-nums; }
 .queue-remove { opacity: 1; width: 28px; min-width: 28px; height: 28px; justify-content: center; }
 .playlist-album { border-bottom: 1px solid var(--line); }
-.playlist-album-head.preview-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px; gap: 10px; min-height: 66px; padding: 8px 10px; }
-.fav-album .playlist-album-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px 18px; }
-.playlist-album-head .preview-chevron { display: none; }
+.playlist-album-head.preview-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px 28px; gap: 10px; min-height: 66px; padding: 8px 10px; }
+.fav-album .playlist-album-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px 28px; }
+.playlist-album-head .preview-chevron { display: none; width: 0; min-width: 0; margin: 0; }
 .fav-album-loading { padding: 12px 14px; color: var(--muted); font-size: 11px; }
 .fav-track-row { grid-template-columns: 24px minmax(0,1fr) 28px 28px 28px 28px; }
 .info-view { min-height: 0; flex: 1; overflow-y: auto; padding: 18px 16px 24px; }
