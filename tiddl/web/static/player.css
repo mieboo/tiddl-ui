@@ -34,7 +34,7 @@
 .queue-head button { margin-left: auto; }
 .player-queue { min-height: 0; flex: 1; overflow-y: auto; }
 .queue-item { grid-template-columns: 50px minmax(0,1fr) 46px 28px 28px; min-height: 66px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--head-bg); }
-.queue-item .queue-remove, .playlist-album-head .queue-remove { width: 28px; min-width: 28px; height: 28px; }
+
 @media (max-width: 700px) { .playlist-album-head.preview-head { grid-template-columns: 46px minmax(0,1fr) 46px 28px 28px; } .playlist-album-head .preview-count { display: block; } }
 .fav-item { grid-template-columns: 50px minmax(0,1fr) 46px 28px 28px 28px; }
 .fav-actions { display: contents; }
@@ -54,8 +54,8 @@
 .queue-cover-placeholder svg { width: 19px; }
 .queue-item:hover, .queue-item.active { background: var(--head-hover); }
 .queue-item.active strong { color: var(--accent); }
-.queue-duration, .playlist-album-head .preview-count { color: var(--muted); font-size: 10px; min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
-.queue-remove { opacity: 1; }
+.queue-duration, .playlist-album-head .preview-count { color: var(--muted); font-size: 10px; width: 46px; min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; }
+.queue-remove { opacity: 1; width: 28px; min-width: 28px; height: 28px; justify-content: center; }
 .playlist-album { border-bottom: 1px solid var(--line); }
 .playlist-album-head.preview-head { grid-template-columns: 50px minmax(0, 1fr) 46px 28px 28px; gap: 10px; min-height: 66px; padding: 8px 10px; }
 .fav-album .playlist-album-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px; }
@@ -89,7 +89,7 @@
 .playlist-album-head.preview-head .preview-cover { width: 50px; height: 50px; }
 .playlist-album-head .preview-title strong { font-size: 13px; }
 .playlist-album-head .preview-title span { font-size: 11px; }
-.playlist-album-head .preview-count { min-width: 46px; text-align: right; font-size: 10px; }
+.playlist-album-head .preview-count { font-size: 10px; }
 .playlist-album-tracks { max-height: 330px; overflow-y: auto; background: var(--surface); }
 .playlist-track-row { width: 100%; min-height: 43px; padding: 7px 12px; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 9px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; }
 .playlist-track-row:hover { background: var(--surface-2); }
