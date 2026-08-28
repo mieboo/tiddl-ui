@@ -27,8 +27,8 @@
     <section class="library-panel">
       <div class="queue-head">
         <div class="library-tabs">
-          <button class="library-tab active" data-library-tab="playlist" type="button"><span data-i18n="playlist">Playlist</span><span id="queueCount">0</span></button>
-          <button class="library-tab" data-library-tab="favorites" type="button"><span data-i18n="favorites">Favorites</span><span id="favCount">0</span></button>
+          <button class="library-tab active" data-library-tab="playlist" type="button"><span data-i18n="playlist">Playlist</span><span class="tab-count" id="queueCount">0</span></button>
+          <button class="library-tab" data-library-tab="favorites" type="button"><span data-i18n="favorites">Favorites</span><span class="tab-count" id="favCount">0</span></button>
         </div>
         <button id="clearQueue" class="icon-button" type="button" data-title="clear" title="Clear playlist"><i data-lucide="trash-2"></i></button>
       </div>
@@ -69,10 +69,12 @@
       <div class="library-tabs lyrics-tabs">
         <button class="library-tab active" data-panel-tab="lyrics" type="button"><span data-i18n="lyrics">Lyrics</span></button>
         <button class="library-tab" data-panel-tab="artist" type="button"><span data-i18n="artistTab">Artist</span></button>
+        <button class="library-tab" data-panel-tab="info" type="button"><span data-i18n="infoTab">Info</span></button>
       </div>
       <div class="lyrics-body">
         <div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div>
         <div id="artistView" class="artist-view" hidden></div>
+        <div id="infoView" class="info-view" hidden></div>
       </div>
     </aside>
   </main>
