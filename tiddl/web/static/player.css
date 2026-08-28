@@ -123,6 +123,10 @@
 .now-art img { width: 100%; height: 100%; object-fit: cover; }
 .now-art img:not([src]) { display: none; }
 .player-shell.art-backdrop::before { content: ""; position: absolute; inset: 68px 0 0; z-index: 0; opacity: 0; transition: opacity .3s ease; background-image: var(--backdrop, none); background-size: cover; background-position: center; filter: blur(64px) saturate(1.15) brightness(.55); transform: scale(1.2); pointer-events: none; }
+:root[data-theme="light"] .player-shell.art-backdrop::before { filter: blur(64px) saturate(1.05) brightness(1.5) contrast(.82); }
+:root[data-theme="light"] .player-shell.art-backdrop::after { content: ""; position: absolute; inset: 68px 0 0; z-index: 0; background: rgba(255,255,255,.38); pointer-events: none; }
+:root[data-theme="light"] .player-shell.art-backdrop::after { opacity: 0; transition: opacity .3s ease; }
+:root[data-theme="light"] .player-shell.art-backdrop.lyrics-open::after { opacity: 1; }
 .player-shell.art-backdrop.lyrics-open::before { opacity: 1; }
 .player-shell.art-backdrop > * { position: relative; z-index: 1; }
 .now-art.lyrics-mode { cursor: pointer; min-height: min(52vh, 460px, 100%, calc(100dvh - 350px)); background: transparent; box-shadow: none; }
