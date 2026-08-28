@@ -198,6 +198,55 @@ def test_search_result_can_be_added_as_download_resource():
     assert result["cover"].endswith("/160x160.jpg")
 
 
+def test_player_track_carries_artist_id():
+    from tiddl.web.app import player_track
+
+    track = SimpleNamespace(
+        id=7,
+        title="Song",
+        artists=[SimpleNamespace(id=99, name="Artist")],
+        album=SimpleNamespace(id=5, title="Album", cover="cover"),
+        duration=180,
+        explicit=False,
+        mediaMetadata=SimpleNamespace(tags=["LOSSLESS"]),
+        audioModes=["STEREO"],
+    )
+
+    payload = player_track(track)
+
+    assert payload["artist_id"] == "99"
+    assert payload["artist"] == "Artist"
+
+
+def test_player_artist_overview_shapes_albums_and_singles(monkeypatch):
+    from tiddl.web.app import player_artist
+
+    release = SimpleNamespace(
+        id=3,
+        title="Release",
+        artists=[SimpleNamespace(name="Artist")],
+        cover="abc-def",
+        duration=200,
+    )
+
+    class Api:
+        def get_artist(self, artist_id):
+            return SimpleNamespace(name="Artist", picture="pic-id")
+
+        def get_artist_albums(self, artist_id, limit=100, filter="ALBUMS"):
+            return SimpleNamespace(items=[release] if filter == "ALBUMS" else [])
+
+    monkeypatch.setattr("tiddl.web.app.available_account_ids", lambda: ["a" * 10])
+    monkeypatch.setattr("tiddl.web.app.account_context", lambda account_id=None: SimpleNamespace(api=Api()))
+
+    overview = asyncio.run(player_artist("99"))
+
+    assert overview["name"] == "Artist"
+    assert overview["picture"].endswith("/320x320.jpg")
+    assert overview["albums"][0]["id"] == "3"
+    assert overview["singles"] == []
+
+
 def test_select_account_balances_ten_tasks_across_three_accounts(monkeypatch):
     accounts = ["a", "b", "c"]
     monkeypatch.setattr("tiddl.web.app.available_account_ids", lambda: accounts)

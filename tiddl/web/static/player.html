@@ -65,7 +65,16 @@
       </div>
       <audio id="audio" preload="metadata"></audio>
     </section>
-    <aside class="lyrics-panel"><div class="lyrics-head"><h2 data-i18n="lyrics">Lyrics</h2></div><div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div></aside>
+    <aside class="lyrics-panel">
+      <div class="library-tabs lyrics-tabs">
+        <button class="library-tab active" data-panel-tab="lyrics" type="button"><span data-i18n="lyrics">Lyrics</span></button>
+        <button class="library-tab" data-panel-tab="artist" type="button"><span data-i18n="artistTab">Artist</span></button>
+      </div>
+      <div class="lyrics-body">
+        <div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div>
+        <div id="artistView" class="artist-view" hidden></div>
+      </div>
+    </aside>
   </main>
   <dialog id="playerSettingsDialog" class="player-settings-dialog">
     <div class="dialog-head"><h2 data-i18n="settings">Player settings</h2><button class="icon-button" data-close-settings type="button" aria-label="Close"><i data-lucide="x"></i></button></div>

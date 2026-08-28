@@ -705,6 +705,7 @@ def player_track(item) -> dict:
         "id": str(item.id),
         "title": item.title,
         "artist": ", ".join(artist.name for artist in item.artists),
+        "artist_id": str(item.artists[0].id) if getattr(item, "artists", None) else "",
         "album": item.album.title,
         "album_id": str(item.album.id),
         "cover": image_url(item.album.cover, 640),
@@ -1040,6 +1041,44 @@ async def add_player_resource(request: PlayerResourceRequest) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Unable to load tracks: {exc}") from exc
     return {"tracks": tracks}
+
+
+@app.get("/api/player/artist/{artist_id}")
+async def player_artist(artist_id: str) -> dict:
+    if not available_account_ids():
+        raise HTTPException(status_code=401, detail="Sign in to browse artists.")
+    if not re.fullmatch(r"\d+", artist_id):
+        raise HTTPException(status_code=404, detail="Artist not found")
+
+    def load() -> dict:
+        api = account_context().api
+        artist = api.get_artist(artist_id)
+
+        def entries(collection: object) -> list[dict]:
+            return [
+                {
+                    "id": str(album.id),
+                    "title": album.title,
+                    "artist": ", ".join(name.name for name in album.artists),
+                    "duration": album.duration,
+                    "cover": image_url(album.cover, 320),
+                }
+                for album in collection.items
+            ]
+
+        albums = api.get_artist_albums(artist_id, limit=100, filter="ALBUMS")
+        singles = api.get_artist_albums(artist_id, limit=100, filter="EPSANDSINGLES")
+        return {
+            "name": artist.name,
+            "picture": image_url(artist.picture, 320),
+            "albums": entries(albums),
+            "singles": entries(singles),
+        }
+
+    try:
+        return await asyncio.to_thread(load)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Unable to load artist: {exc}") from exc
 
 
 @app.post("/api/player/resolve")
