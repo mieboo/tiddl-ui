@@ -200,3 +200,5 @@ input[type="range"] { height: 20px; padding: 0; border: 0; box-shadow: none; acc
 .follow-button:hover { color: var(--accent); border-color: var(--accent); }
 .follow-button.following { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
 .follow-item { grid-template-columns: 50px minmax(0,1fr) 28px; }
+
+.artist-search-results { margin: 0 0 10px; overflow: auto; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: 0 16px 40px rgba(0,0,0,.28); }

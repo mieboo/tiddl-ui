@@ -1085,6 +1085,28 @@ async def player_artist(artist_id: str) -> dict:
         raise HTTPException(status_code=502, detail=f"Unable to load artist: {exc}") from exc
 
 
+@app.get("/api/player/search-artists")
+async def search_artists(query: str = Query(min_length=2, max_length=100)) -> dict:
+    if not available_account_ids():
+        raise HTTPException(status_code=401, detail="Sign in to search artists.")
+
+    def load() -> list[dict]:
+        results = account_context().api.get_search(query=query)
+        return [
+            {
+                "id": str(artist.id),
+                "name": artist.name,
+                "picture": image_url(artist.picture, 320) if artist.picture else None,
+            }
+            for artist in results.artists.items[:10]
+        ]
+
+    try:
+        return {"artists": await asyncio.to_thread(load)}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Unable to search artists: {exc}") from exc
+
+
 @app.post("/api/player/resolve")
 async def resolve_player(request: PlayerResolveRequest) -> dict:
     account_id = select_account()
