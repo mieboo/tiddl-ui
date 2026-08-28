@@ -74,7 +74,7 @@ function renderArtistView() {
   icon(); renderArtistList();
 }
 function showPanelArtistError(message) { state.artistView={error:message}; renderArtistView(); }
-async function openArtistPage(artistId,switchTab=true) { if(switchTab)showPanelTab("artist"); state.artistView={loading:true}; state.artistFilter={section:"albums",query:""}; renderArtistView(); try { const data=await api(`/api/player/artist/${artistId}`); state.artistView=data; } catch(error) { state.artistView={error:error.message}; } renderArtistView(); renderArtistSelection(); }
+async function openArtistPage(artistId,switchTab=true) { if(switchTab)showPanelTab("artist"); state.artistView={loading:true}; state.artistFilter={section:"albums",query:""}; renderArtistView(); try { const data=await api(`/api/player/artist/${artistId}`); const dedupe=(list)=>{const seen=new Set();return (list||[]).filter(entry=>{const key=`${entry.title.toLowerCase()}|${entry.year||""}`;if(seen.has(key))return false;seen.add(key);return true;});};data.albums=dedupe(data.albums);data.singles=dedupe(data.singles);state.artistView=data; } catch(error) { state.artistView={error:error.message}; } renderArtistView(); renderArtistSelection(); }
 async function playArtistAlbum(entry) { return addResource(`album/${entry.id}`).then(()=>{ const index=state.queue.findIndex(track=>String(track.album_id)===String(entry.id)); if(index>=0)playIndex(index); }); }
 async function playArtistRelease(entry) { await addResource(`album/${entry.id}`); const index=state.queue.findIndex(track=>String(track.album_id)===String(entry.id)); if(index>=0)playIndex(index); }
 async function addArtistAlbum(entry) { await addResource(`album/${entry.id}`); showToast(t("addedToQueue")); }
