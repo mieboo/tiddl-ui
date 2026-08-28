@@ -186,3 +186,5 @@ input[type="range"] { height: 20px; padding: 0; border: 0; box-shadow: none; acc
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 980px) { .player-shell { grid-template-columns: 330px 1fr; } .lyrics-panel { display: none; } }
 @media (max-width: 700px) { .player-body { overflow: hidden; } .player-nav { display: none; } .player-shell { height: calc(100dvh - 68px); min-height: 0; display: flex; flex-direction: column-reverse; } .library-panel { height: auto; min-height: 0; flex: 0 0 42%; border: 0; border-top: 1px solid var(--line); } .now-panel { min-height: 0; flex: 1 1 58%; padding: 14px 22px; } .now-art { width: min(24dvh, 220px, 72vw); } .now-copy { margin-top: 12px; } .play-speed { display: none; } .player-error { min-height: 15px; margin-top: 3px; } .transport { margin-top: 5px; } .play-options { margin-top: 6px; } .topbar { padding: 0 16px; } }
+
+.queue-tail { width: 28px; min-width: 28px; }
