@@ -40,6 +40,7 @@
 .fav-actions { display: contents; }
 .fav-actions .icon-button:hover { color: var(--accent); }
 .queue-fav { width: 28px; min-width: 28px; height: 28px; color: var(--muted); }
+.queue-fav svg { width: 15px; height: 15px; }
 .queue-fav:hover { color: var(--accent); background: transparent; }
 .queue-fav.fav-on { opacity: 1; color: var(--accent); }
 .queue-fav.fav-on svg { fill: currentColor; }
