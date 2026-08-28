@@ -1,10 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#0b0c0e"/>
-  <rect x="12" y="12" width="40" height="40" rx="10" fill="#36e0a1"/>
-  <g fill="#0b0c0e">
-    <rect x="19" y="25" width="4.5" height="14" rx="2.25"/>
-    <rect x="26" y="19" width="4.5" height="26" rx="2.25"/>
-    <rect x="33" y="23" width="4.5" height="18" rx="2.25"/>
-    <rect x="40" y="17.5" width="4.5" height="29" rx="2.25"/>
+  <!-- ATP 分子：腺嘌呤(六边形+五边形) + 核糖(五边形) + 三磷酸尾(三个圆) -->
+  <g stroke="#36e0a1" stroke-width="3" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <!-- 腺嘌呤碱基 -->
+    <path d="M14 22 L19 14 L27 14 L32 22 L27 30 L19 30 Z"/>
+    <path d="M27 14 L27 8 L19 8"/>
+    <!-- 核糖五元环 -->
+    <path d="M32 22 L40 18 L47 24 L44 32 L36 31 Z"/>
+    <!-- 磷酸链 -->
+    <path d="M40 18 L46 12"/>
   </g>
+  <!-- 三个磷酸基团 -->
+  <circle cx="49" cy="9" r="4.5" fill="#36e0a1"/>
+  <circle cx="47" cy="38" r="4.5" fill="#36e0a1"/>
+  <circle cx="53" cy="33" r="4.5" fill="#2ab87f"/>
+  <!-- 高能磷酸键闪电（P~P） -->
+  <path d="M50 15 L53 20 L49 22 L54 27" stroke="#f2c94c" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
