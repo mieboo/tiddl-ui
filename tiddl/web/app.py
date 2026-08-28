@@ -592,7 +592,7 @@ def build_preview(urls: list[str]) -> list[dict]:
     api = account_context().api
     result = []
 
-    def card(resource, input_index: int, items: list, source_items: list, title: str, subtitle: str, cover: str | None, truncated: bool, singles: bool = False) -> dict:
+    def card(resource, input_index: int, items: list, source_items: list, title: str, subtitle: str, cover: str | None, truncated: bool, singles: bool = False, kind: str = "") -> dict:
         options, specs = detect_download_options(items, source_items)
         return {
             "resource": str(resource),
@@ -606,6 +606,7 @@ def build_preview(urls: list[str]) -> list[dict]:
             "download_options": options,
             "specs": specs,
             "singles": singles,
+            "kind": kind,
         }
 
     def artist_album_card_items(collection: object) -> list[dict]:
@@ -648,6 +649,7 @@ def build_preview(urls: list[str]) -> list[dict]:
             items = [preview_item(entry.item, entry.type) for entry in collection.items]
             source_items = collection.items
             truncated = collection.totalNumberOfItems > len(items)
+            album_kind = getattr(entity, "type", "") or ""
         elif resource.type == "playlist":
             entity = api.get_playlist(resource.id)
             collection = api.get_playlist_items(resource.id, limit=100)
@@ -673,7 +675,7 @@ def build_preview(urls: list[str]) -> list[dict]:
             result.append(card(resource, input_index, artist_album_card_items(albums), [], entity.name, "Artist releases", cover, albums.totalNumberOfItems > len(albums.items)))
             result.append(card(resource, input_index, artist_album_card_items(singles), [], entity.name, "Singles & EPs", cover, singles.totalNumberOfItems > len(singles.items), singles=True))
             continue
-        result.append(card(resource, input_index, items, source_items, title, subtitle, cover, truncated))
+        result.append(card(resource, input_index, items, source_items, title, subtitle, cover, truncated, kind=album_kind))
     return result
 
 
