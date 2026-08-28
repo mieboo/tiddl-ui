@@ -23,7 +23,7 @@
 .queue-head { height: 50px; flex: 0 0 50px; display: flex; align-items: flex-end; gap: 8px; padding: 0 14px; position: relative; z-index: 1; }
 .library-tabs { display: flex; align-items: flex-end; gap: 3px; min-width: 0; height: 100%; }
 .library-tab { position: relative; height: 34px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border: 0; border-radius: 9px 9px 0 0; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 650; white-space: nowrap; transition: color .12s, background .12s; }
-.library-tab:hover { color: var(--text); background: color-mix(in srgb, var(--head-hover) 72%, transparent); }
+.library-tab:hover { color: var(--text); background: transparent; }
 .library-tab.active { color: var(--text); background: var(--surface); border: 1px solid var(--line); border-bottom: 0; margin-bottom: -1px; }
 .library-tab.active::before, .library-tab.active::after { content: ""; position: absolute; bottom: 0; width: 10px; height: 10px; }
 .library-tab.active::before { left: -10px; background: radial-gradient(circle at top left, transparent 9.5px, var(--surface) 9.5px), radial-gradient(circle at top left, transparent 8.5px, var(--line) 8.5px); }
@@ -137,7 +137,7 @@ input[type="range"] { height: 20px; padding: 0; border: 0; box-shadow: none; acc
 .quality-specs { overflow: visible; }
 .quality-specs .spec-menu { top: auto; right: auto; bottom: calc(100% + 6px); left: 0; min-width: 180px; }
 .player-settings-button { width: 30px; min-width: 30px; height: 30px; padding: 0; justify-self: center; border: 0; background: transparent; }
-.player-settings-button:hover { background: transparent; }
+.player-settings-button:hover { color: var(--accent); background: transparent; }
 .player-settings-button svg { width: 14px; }
 .player-settings-dialog { width: min(390px, calc(100vw - 32px)); }
 .player-settings-dialog .dialog-head { align-items: center; padding: 16px 18px; }
@@ -146,7 +146,7 @@ input[type="range"] { height: 20px; padding: 0; border: 0; box-shadow: none; acc
 .player-settings-content .toggle-field { grid-column: auto; }
 .volume { justify-self: start; }
 .volume .icon-button { width: 14px; min-width: 14px; height: 30px; padding: 0; background: transparent; }
-.volume .icon-button:hover { background: transparent; }
+.volume .icon-button:hover { color: var(--accent); background: transparent; }
 .volume .icon-button svg { width: 14px; height: 14px; }
 .volume input { width: 86px; }
 .lyrics-tabs { height: 50px; flex: 0 0 50px; padding: 0 14px; position: relative; z-index: 1; }
