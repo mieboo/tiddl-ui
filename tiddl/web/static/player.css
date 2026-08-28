@@ -106,6 +106,14 @@
 .now-art { width: min(52vh, 460px, 100%, calc(100dvh - 350px)); flex: 0 1 auto; aspect-ratio: 1; position: relative; display: grid; place-items: center; background: var(--surface-2); box-shadow: 0 24px 60px rgba(0,0,0,.24); }
 .now-art img { width: 100%; height: 100%; object-fit: cover; }
 .now-art img:not([src]) { display: none; }
+.player-shell.art-backdrop::before { content: ""; position: absolute; inset: 68px 0 0; z-index: 0; background-image: var(--backdrop, none); background-size: cover; background-position: center; filter: blur(64px) saturate(1.15) brightness(.55); transform: scale(1.2); pointer-events: none; }
+.player-shell.art-backdrop > * { position: relative; z-index: 1; }
+.now-art.lyrics-mode { cursor: pointer; }
+.now-art img.blurred { filter: blur(18px) brightness(.75); transform: scale(1.1); }
+.cover-lyrics { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 16px; white-space: pre-wrap; text-align: center; color: var(--text); font-size: 13px; line-height: 1.85; scrollbar-width: none; }
+.cover-lyrics::-webkit-scrollbar { display: none; }
+.cover-lyrics .lyrics-line { padding: 3px 0; }
+.cover-lyrics .lyrics-line.active { font-weight: 700; }
 .now-art > span svg { width: 56px; height: 56px; color: var(--muted); }
 .now-copy { width: 100%; margin-top: 22px; }
 .now-copy h2 { font-size: 19px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
