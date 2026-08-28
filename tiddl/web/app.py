@@ -103,6 +103,7 @@ class ResourceMetadata(BaseModel):
     subtitle: str = ""
     cover: str | None = None
     type: str = ""
+    singles: bool = False
 
 
 class DownloadRequest(BaseModel):
@@ -590,7 +591,37 @@ def detect_download_options(items: list[dict], source_items: list) -> tuple[dict
 def build_preview(urls: list[str]) -> list[dict]:
     api = account_context().api
     result = []
-    for value in urls:
+
+    def card(resource, input_index: int, items: list, source_items: list, title: str, subtitle: str, cover: str | None, truncated: bool, singles: bool = False) -> dict:
+        options, specs = detect_download_options(items, source_items)
+        return {
+            "resource": str(resource),
+            "input_index": input_index,
+            "type": resource.type,
+            "title": title,
+            "subtitle": subtitle,
+            "cover": cover,
+            "items": items,
+            "truncated": truncated,
+            "download_options": options,
+            "specs": specs,
+            "singles": singles,
+        }
+
+    def artist_album_card_items(collection: object) -> list[dict]:
+        return [
+            {
+                "id": str(album.id),
+                "type": "album",
+                "title": album.title,
+                "artist": ", ".join(artist.name for artist in album.artists),
+                "duration": format_duration(album.duration),
+                "explicit": album.explicit,
+            }
+            for album in collection.items
+        ]
+
+    for input_index, value in enumerate(urls):
         resource = TidalResource.from_string(value)
         items = []
         truncated = False
@@ -636,37 +667,13 @@ def build_preview(urls: list[str]) -> list[dict]:
             truncated = collection.totalNumberOfItems > len(items)
         else:
             entity = api.get_artist(resource.id)
-            collection = api.get_artist_albums(resource.id, limit=100)
-            title = entity.name
-            subtitle = "Artist releases"
             cover = image_url(entity.picture)
-            items = [
-                {
-                    "id": str(album.id),
-                    "type": "album",
-                    "title": album.title,
-                    "artist": ", ".join(artist.name for artist in album.artists),
-                    "duration": format_duration(album.duration),
-                    "explicit": album.explicit,
-                }
-                for album in collection.items
-            ]
-            source_items = []
-            truncated = collection.totalNumberOfItems > len(items)
-        options, specs = detect_download_options(items, source_items)
-        result.append(
-            {
-                "resource": str(resource),
-                "type": resource.type,
-                "title": title,
-                "subtitle": subtitle,
-                "cover": cover,
-                "items": items,
-                "truncated": truncated,
-                "download_options": options,
-                "specs": specs,
-            }
-        )
+            albums = api.get_artist_albums(resource.id, limit=100, filter="ALBUMS")
+            singles = api.get_artist_albums(resource.id, limit=100, filter="EPSANDSINGLES")
+            result.append(card(resource, input_index, artist_album_card_items(albums), [], entity.name, "Artist releases", cover, albums.totalNumberOfItems > len(albums.items)))
+            result.append(card(resource, input_index, artist_album_card_items(singles), [], entity.name, "Singles & EPs", cover, singles.totalNumberOfItems > len(singles.items), singles=True))
+            continue
+        result.append(card(resource, input_index, items, source_items, title, subtitle, cover, truncated))
     return result
 
 
@@ -808,6 +815,7 @@ def download_command(
     request: DownloadRequest,
     url: str,
     options: ResourceDownloadOptions | None = None,
+    singles: bool = False,
 ) -> list[str]:
     options = options or ResourceDownloadOptions(
         track_quality=request.track_quality,
@@ -823,6 +831,8 @@ def download_command(
         "--dolby-atmos", options.atmos,
         "--threads-count", str(request.threads),
     )
+    if url.startswith("artist/"):
+        command.extend(["--singles", "only" if singles else "none"])
     if not request.skip_existing:
         command.append("--no-skip")
     if request.download_path.strip():
@@ -988,7 +998,7 @@ async def download(request: DownloadRequest) -> dict:
         job = create_job(
             "download",
             metadata.title or str(resource),
-            download_command(request, url, options),
+            download_command(request, url, options, singles=metadata.singles and resource.type == "artist"),
             account_id=account_id,
             env={"TIDDL_AUTH_FILE": str(account_path(account_id))},
             subtitle=metadata.subtitle,

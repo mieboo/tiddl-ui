@@ -270,6 +270,42 @@ def test_each_download_command_contains_one_resource():
     assert "album/1" not in second
 
 
+def test_download_command_sets_singles_filter_for_artists():
+    request = DownloadRequest(urls=["artist/1"])
+
+    albums = download_command(request, "artist/1", singles=False)
+    singles = download_command(request, "artist/1", singles=True)
+    track = download_command(DownloadRequest(urls=["track/2"]), "track/2", singles=True)
+
+    assert albums[albums.index("--singles") + 1] == "none"
+    assert singles[singles.index("--singles") + 1] == "only"
+    assert "--singles" not in track
+
+
+def test_build_preview_artist_splits_albums_and_singles(monkeypatch):
+    from tiddl.web.app import build_preview
+
+    album = SimpleNamespace(id=1, title="Album", artists=[SimpleNamespace(name="Artist")], cover="c", duration=100, explicit=False)
+    single = SimpleNamespace(id=2, title="Single", artists=[SimpleNamespace(name="Artist")], cover="c", duration=90, explicit=False)
+
+    class Api:
+        def get_artist(self, artist_id):
+            return SimpleNamespace(name="Artist", picture="p")
+
+        def get_artist_albums(self, artist_id, limit=100, filter="ALBUMS"):
+            items = [album] if filter == "ALBUMS" else [single]
+            return SimpleNamespace(items=items, totalNumberOfItems=len(items))
+
+    monkeypatch.setattr("tiddl.web.app.account_context", lambda account_id=None: SimpleNamespace(api=Api()))
+
+    cards = build_preview(["artist/1"])
+
+    assert [card["subtitle"] for card in cards] == ["Artist releases", "Singles & EPs"]
+    assert [card["singles"] for card in cards] == [False, True]
+    assert [card["items"][0]["title"] for card in cards] == ["Album", "Single"]
+    assert all(card["input_index"] == 0 for card in cards)
+
+
 def test_detected_resource_options_override_global_defaults():
     request = DownloadRequest(urls=["video/1"])
     options = ResourceDownloadOptions(

@@ -457,7 +457,7 @@ async function previewResources() {
     if (requestId !== state.previewRequest) return;
     applyPreviewDefaults(data.resources);
     state.previews.push(...data.resources);
-    state.previewUrls.push(...urls);
+    for (const resource of data.resources) state.previewUrls.push(urls[resource.input_index] ?? resource.resource);
     const currentInput = $("#urls").value;
     if (currentInput === inputValue) $("#urls").value = "";
     else if (currentInput.startsWith(inputValue)) $("#urls").value = currentInput.slice(inputValue.length).trimStart();
@@ -557,7 +557,7 @@ async function submitDownload(event) {
     if (pendingInput && await previewResources() === null) throw new Error(message.textContent);
     const urls = [...state.previewUrls];
     if (!urls.length) throw new Error(t("resourceLabel"));
-    const result = await api("/api/downloads", { method: "POST", body: JSON.stringify({ urls, resource_options: state.previews.map((resource) => resource.download_options), resource_metadata: state.previews.map((resource) => ({ title: resource.title, subtitle: resource.subtitle || "", cover: resource.cover, type: resource.type })), threads: Number($("#threads").value), skip_existing: $("#skipExisting").checked, download_path: $("#downloadPath").value, output_template: $("#outputTemplate").value }) });
+    const result = await api("/api/downloads", { method: "POST", body: JSON.stringify({ urls, resource_options: state.previews.map((resource) => resource.download_options), resource_metadata: state.previews.map((resource) => ({ title: resource.title, subtitle: resource.subtitle || "", cover: resource.cover, type: resource.type, singles: Boolean(resource.singles) })), threads: Number($("#threads").value), skip_existing: $("#skipExisting").checked, download_path: $("#downloadPath").value, output_template: $("#outputTemplate").value }) });
     $("#urls").value = "";
     state.previews = [];
     state.previewUrls = [];
