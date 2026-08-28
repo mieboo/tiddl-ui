@@ -219,6 +219,7 @@ def test_player_track_carries_artist_id():
 
 
 def test_player_artist_overview_shapes_albums_and_singles(monkeypatch):
+    from datetime import datetime
     from tiddl.web.app import player_artist
 
     release = SimpleNamespace(
@@ -227,6 +228,7 @@ def test_player_artist_overview_shapes_albums_and_singles(monkeypatch):
         artists=[SimpleNamespace(name="Artist")],
         cover="abc-def",
         duration=200,
+        releaseDate=datetime(2013, 5, 17),
     )
 
     class Api:
@@ -244,6 +246,7 @@ def test_player_artist_overview_shapes_albums_and_singles(monkeypatch):
     assert overview["name"] == "Artist"
     assert overview["picture"].endswith("/320x320.jpg")
     assert overview["albums"][0]["id"] == "3"
+    assert overview["albums"][0]["year"] == "2013"
     assert overview["singles"] == []
 
 

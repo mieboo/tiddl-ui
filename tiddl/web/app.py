@@ -1060,6 +1060,7 @@ async def player_artist(artist_id: str) -> dict:
                     "id": str(album.id),
                     "title": album.title,
                     "artist": ", ".join(name.name for name in album.artists),
+                    "year": str(album.releaseDate.year) if getattr(album, "releaseDate", None) else "",
                     "duration": album.duration,
                     "cover": image_url(album.cover, 320),
                 }
