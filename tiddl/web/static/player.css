@@ -131,7 +131,7 @@
 .player-shell.art-backdrop > * { position: relative; z-index: 1; }
 .now-art.lyrics-mode { cursor: pointer; min-height: min(52vh, 460px, 100%, calc(100dvh - 350px)); background: transparent; box-shadow: none; }
 .now-art.lyrics-mode > :not(.cover-lyrics) { visibility: hidden; }
-.cover-lyrics { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 92%); max-height: min(52dvh, 440px); overflow-y: auto; overscroll-behavior: contain; padding: 24px 24px; white-space: pre-wrap; text-align: center; color: var(--text); font-size: 14px; line-height: 1.75; scrollbar-width: none; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); }
+.cover-lyrics { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 92%); max-height: min(52dvh, 440px); overflow-y: auto; overscroll-behavior: contain; padding: 24px 24px; white-space: pre-wrap; text-align: center; color: var(--text); font-size: 14px; line-height: 2; scrollbar-width: none; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); }
 .cover-lyrics::-webkit-scrollbar { display: none; }
 .cover-lyrics .lyrics-line { padding: 3px 0; transition: color .15s, font-size .15s; }
 .cover-lyrics .lyrics-line.active { color: var(--accent); font-size: 17px; font-weight: 700; }
