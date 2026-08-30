@@ -216,10 +216,14 @@ function favInnerTrack(el) {
 $("#playerFavorites").addEventListener("click",event=>{
   const summary=event.target.closest("summary");
   if(!summary)return;
-  const remove=summary&&event.target.closest("[data-remove-fav]");
-  if(remove){event.stopPropagation();const fi=Number(remove.dataset.removeFav);if(fi<0){const innerRow=remove.closest("[data-fav-inner-row]");if(innerRow){const box=innerRow.closest("[data-fav-album-tracks]");const entry=box&&state.favorites[Number(box.dataset.favAlbumTracks)];const t0=favInnerTrack(innerRow);if(entry&&t0){(entry._excluded??=new Set()).add(String(t0.id));entry._removedCount=(entry._removedCount||0)+1;saveFavorites();renderFavorites();renderQueue();}return showToast(t("favViaAlbum"));}return;}state.favorites.splice(fi,1);saveFavorites();renderQueue();renderFavorites();refreshTrackActions();return;}
-  const albumAdd=summary&&event.target.closest("[data-album-fav-add]");
-  if(albumAdd){event.stopPropagation();const entry=state.favorites[Number(albumAdd.dataset.albumFavAdd)];if(entry)toggleAlbumInQueue(entry);return;}
+  const actionable=event.target.closest("[data-remove-fav],[data-album-fav-add]");
+  if(!actionable)return;
+  event.preventDefault();
+  event.stopPropagation();
+  const remove=actionable.matches("[data-remove-fav]")?actionable:null;
+  if(remove){const fi=Number(remove.dataset.removeFav);if(fi<0){const innerRow=remove.closest("[data-fav-inner-row]");if(innerRow){const box=innerRow.closest("[data-fav-album-tracks]");const entry=box&&state.favorites[Number(box.dataset.favAlbumTracks)];const t0=favInnerTrack(innerRow);if(entry&&t0){(entry._excluded??=new Set()).add(String(t0.id));entry._removedCount=(entry._removedCount||0)+1;saveFavorites();renderFavorites();renderQueue();}return showToast(t("favViaAlbum"));}return;}state.favorites.splice(fi,1);saveFavorites();renderQueue();renderFavorites();refreshTrackActions();return;}
+  const albumAdd=actionable.matches("[data-album-fav-add]")?actionable:null;
+  if(albumAdd){const entry=state.favorites[Number(albumAdd.dataset.albumFavAdd)];if(entry)toggleAlbumInQueue(entry);return;}
 },true);
 $("#playerFavorites").addEventListener("click",event=>{
   const remove=event.target.closest("[data-remove-fav]");
