@@ -210,6 +210,19 @@ function favInnerTrack(el) {
   const index=el.dataset.innerAdd??el.dataset.artistTrack;
   return entry&&entry._tracks?entry._tracks[Number(index)]:null;
 }
+// capture 阶段拦截 summary 内可操作元素的点击,阻止 <details> 展开/折叠
+// 同时直接执行操作,因为 stopPropagation 后 bubble 阶段监听器不会被触发
+$("#playerFavorites").addEventListener("click",event=>{
+  const summary=event.target.closest("summary");
+  if(!summary)return;
+  const remove=summary&&event.target.closest("[data-remove-fav]");
+  if(remove){event.stopPropagation();const fi=Number(remove.dataset.removeFav);if(fi<0){const innerRow=remove.closest("[data-fav-inner-row]");if(innerRow){const box=innerRow.closest("[data-fav-album-tracks]");const entry=box&&state.favorites[Number(box.dataset.favAlbumTracks)];const t0=favInnerTrack(innerRow);if(entry&&t0){(entry._excluded??=new Set()).add(String(t0.id));entry._removedCount=(entry._removedCount||0)+1;saveFavorites();renderFavorites();renderQueue();}return showToast(t("favViaAlbum"));}return;}const favEntry=state.favorites[fi];if(!favEntry)return;
+    if(favEntry._pendingRemove){ delete favEntry._pendingRemove; }
+    else favEntry._pendingRemove=true;
+    saveFavorites();renderQueue();renderFavorites();refreshTrackActions();return;}
+  const albumAdd=summary&&event.target.closest("[data-album-fav-add]");
+  if(albumAdd){event.stopPropagation();const entry=state.favorites[Number(albumAdd.dataset.albumFavAdd)];if(entry)appendFavoriteAlbum(entry);return;}
+},true);
 $("#playerFavorites").addEventListener("click",event=>{
   const remove=event.target.closest("[data-remove-fav]");
   if(remove){event.stopPropagation();const fi=Number(remove.dataset.removeFav);if(fi<0){const innerRow=remove.closest("[data-fav-inner-row]");if(innerRow){const box=innerRow.closest("[data-fav-album-tracks]");const entry=box&&state.favorites[Number(box.dataset.favAlbumTracks)];const t0=favInnerTrack(innerRow);if(entry&&t0){(entry._excluded??=new Set()).add(String(t0.id));entry._removedCount=(entry._removedCount||0)+1;saveFavorites();renderFavorites();renderQueue();}return showToast(t("favViaAlbum"));}return;}const favEntry=state.favorites[fi];if(!favEntry)return;
@@ -256,6 +269,21 @@ $("#playerFollowing").addEventListener("click",event=>{
   const row=event.target.closest("[data-follow-open]");
   if(row){const artist=state.follows[Number(row.dataset.followOpen)];if(artist&&artist.id&&artist.id!=="undefined")openArtistPage(artist.id);else showToast(t("requestFailed"));}
 });
+// capture 阶段拦截 summary 内可操作元素的点击,阻止 <details> 展开/折叠
+$("#artistView").addEventListener("click",event=>{
+  const summary=event.target.closest("summary");
+  if(!summary)return;
+  const add=summary&&event.target.closest("[data-artist-add]");
+  if(add){event.stopPropagation();event.preventDefault();const entry=artistEntries()[Number(add.dataset.artistAdd)];if(entry)addArtistAlbum(entry);return;}
+  const fav=summary&&event.target.closest("[data-artist-fav]");
+  if(fav){event.stopPropagation();event.preventDefault();const entry=artistEntries()[Number(fav.dataset.artistFav)];if(entry){toggleAlbumFavorite({kind:"album",id:String(entry.id),title:entry.title,artist:entry.artist,cover:entry.cover,album_id:String(entry.id),artist_id:""});fav.classList.toggle("fav-on");renderQueue();renderFavorites();}return;}
+  const innerToggle=summary&&event.target.closest("[data-artist-inner-add]");
+  if(innerToggle){event.stopPropagation();event.preventDefault();const album=artistEntries()[Number(innerToggle.dataset.albumIndex)];const track=album&&album._tracks&&album._tracks[Number(innerToggle.dataset.artistInnerAdd)];if(!track)return;
+    const inQueue=trackInQueue(track.id);
+    if(inQueue){const index=state.queue.findIndex(item=>String(item.id)===String(track.id));if(index>=0){state.queue.splice(index,1);if(state.current>=state.queue.length)state.current=state.queue.length-1;}}
+    else insertAfterCurrent(track);
+    renderQueue();renderArtistList();return;}
+},true);
 $("#artistView").addEventListener("click",event=>{
   const goto=event.target.closest("[data-artist-goto]");
   if(goto){event.stopPropagation();openArtistPage(goto.getAttribute("data-artist-goto"));const panel=$("#artistSearchResults"); if(panel)panel.hidden=true; const input=$("#artistSearch"); if(input)input.value=""; return;}
