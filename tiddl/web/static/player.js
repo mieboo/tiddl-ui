@@ -69,7 +69,7 @@ function addIcon(state,attrs) {
   const cls=state==="full"?" added":state==="partial"?" partial":"";
   const icon=state==="none"?"plus":"check";
   const tip=state==="full"?t("addedToQueue"):state==="partial"?t("partiallyInQueue"):t("add");
-  return `<span class="queue-remove icon-button${cls}" ${attrs} title="${tip}"><i data-lucide="${icon}"></i></span>`;
+  return `<span class="queue-remove icon-button${cls}" ${attrs} title="${tip}" data-add-state="${state}"><i data-lucide="${icon}"></i></span>`;
 }
 function isTrackFavorited(track) { return isFavorite("track",track.id)||isAlbumCovered(track); }
 function addAlbumFavorite(entry) { state.favorites=state.favorites.filter(item=>!(item.kind==="track"&&String(item.album_id||"")===String(entry.id))); state.favorites.push(entry); }
