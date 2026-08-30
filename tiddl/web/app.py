@@ -24,6 +24,7 @@ from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
+import requests
 import uvicorn
 
 from tiddl.cli.config import APP_PATH, CONFIG
@@ -515,6 +516,26 @@ def image_url(image_id: str | None, size: int = 320) -> str | None:
     return f"https://resources.tidal.com/images/{path}/{size}x{size}.jpg"
 
 
+def cover_is_bright(url: str | None) -> bool:
+    """Average-cover-luminance heuristic (Kugou style): True means the cover
+    is bright, so lyrics text should switch to dark colors."""
+    if not url:
+        return False
+    try:
+        import io
+
+        from PIL import Image
+
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        with Image.open(io.BytesIO(response.content)) as image:
+            small = image.convert("L").resize((16, 16))
+            pixels = list(small.getdata())
+        return (sum(pixels) / len(pixels)) >= 140
+    except Exception:
+        return False
+
+
 def format_duration(seconds: int) -> str:
     minutes, remaining = divmod(max(seconds, 0), 60)
     hours, minutes = divmod(minutes, 60)
@@ -811,7 +832,7 @@ def resolve_player_stream(track_id: str, quality: str, account_id: str, allow_at
         lyrics = {"text": lyric_data.lyrics, "subtitles": lyric_data.subtitles, "rtl": lyric_data.isRightToLeft}
     except Exception:
         pass
-    return session, player_track(track), lyrics
+    return session, player_track(track), lyrics, cover_is_bright(player_track(track)["cover"])
 
 
 def download_command(
@@ -1073,6 +1094,7 @@ async def player_artist(artist_id: str) -> dict:
         albums = api.get_artist_albums(artist_id, limit=100, filter="ALBUMS")
         singles = api.get_artist_albums(artist_id, limit=100, filter="EPSANDSINGLES")
         return {
+            "id": str(artist_id),
             "name": artist.name,
             "picture": image_url(artist.picture, 320),
             "albums": entries(albums),
@@ -1111,7 +1133,7 @@ async def search_artists(query: str = Query(min_length=2, max_length=100)) -> di
 async def resolve_player(request: PlayerResolveRequest) -> dict:
     account_id = select_account()
     try:
-        session, track, lyrics = await asyncio.to_thread(
+        session, track, lyrics, cover_bright = await asyncio.to_thread(
             resolve_player_stream, request.track_id, request.quality, account_id, request.allow_atmos
         )
     except Exception as exc:
@@ -1132,6 +1154,7 @@ async def resolve_player(request: PlayerResolveRequest) -> dict:
         "audio_mode": session.audio_mode,
         "bit_depth": session.bit_depth,
         "sample_rate": session.sample_rate,
+        "cover_bright": cover_bright,
         "track": track,
         "lyrics": lyrics,
     }
