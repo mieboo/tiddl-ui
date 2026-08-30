@@ -1,3 +1,5 @@
+// 下载视图(SPA):整个脚本包在 IIFE 内,与播放器脚本隔离全局作用域
+(function () {
 const $ = (selector) => document.querySelector(selector);
 
 const messages = {
@@ -48,6 +50,8 @@ const messages = {
     loginFailed: "Sign in could not be started. Open the task log for details.",
     preparingLogin: "Preparing a secure Tidal sign-in link...",
     switchTheme: "Switch color theme",
+    downloads: "Downloads",
+    player: "Player",
     refreshTasks: "Refresh tasks",
     statusQueued: "Queued",
     statusRunning: "Running",
@@ -131,6 +135,8 @@ const messages = {
     loginFailed: "无法启动登录，请打开任务日志查看详情。",
     preparingLogin: "正在准备 Tidal 登录链接...",
     switchTheme: "切换颜色主题",
+    downloads: "下载",
+    player: "播放器",
     refreshTasks: "刷新任务",
     statusQueued: "排队中",
     statusRunning: "下载中",
@@ -605,7 +611,7 @@ async function cancelJob(jobId) {
 function applyLocale() {
   document.documentElement.lang = state.lang === "zh" ? "zh-CN" : "en";
   $("#languageSelect").value = state.lang;
-  document.querySelectorAll("[data-i18n]").forEach((element) => { element.textContent = t(element.dataset.i18n); });
+  document.querySelectorAll("#view-downloads [data-i18n], .topbar [data-i18n]").forEach((element) => { element.textContent = t(element.dataset.i18n); });
   $("#themeButton").title = t("switchTheme");
   $("#themeButton").setAttribute("aria-label", t("switchTheme"));
   $("#refreshButton").title = t("refreshTasks");
@@ -624,6 +630,7 @@ function applyLocale() {
   if (state.previews.length) renderPreview(state.previews, openPreviewIndexes());
   if (!$("#searchResults").hidden) renderSearchResults(state.searchResults);
   if ($("#authDialog").open) openAuthContentForCurrentState();
+  document.documentElement.removeAttribute("data-i18n-pending");
 }
 
 function openAuthContentForCurrentState() {
@@ -724,3 +731,4 @@ applyLocale();
 refreshAll();
 state.timer = setInterval(refreshJobs, 1200);
 state.accountTimer = setInterval(refreshAccounts, 10000);
+})();

@@ -55,9 +55,17 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--bg); co
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 .topbar { height: 68px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: var(--topbar); position: sticky; top: 0; z-index: 10; }
+.topbar-nav { display: flex; align-items: center; gap: 4px; margin-left: 26px; margin-right: auto; }
+.topbar-nav a { padding: 7px 14px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 13.5px; font-weight: 650; transition: color .12s, background .12s; }
+.topbar-nav a:hover { color: var(--text); background: var(--surface-2); }
+.topbar-nav a.active { color: var(--text); background: var(--surface-2); }
+/* 中文界面:静态 HTML 是英文,本地化完成前先隐藏正文,避免语言闪现 */
+html[data-i18n-pending] body { visibility: hidden; }
+/* SPA 视图切换:hidden 属性必须赢过任何 author display 规则 */
+[hidden] { display: none !important; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-size: 20px; font-weight: 760; }
-.brand-mark { width: 32px; height: 32px; display: grid; place-items: center; background: var(--accent); color: #07140f; border-radius: 6px; }
-.brand-mark svg { width: 20px; }
+.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; color: var(--accent); }
+.brand-mark svg { width: 30px; }
 .top-actions, .system-facts { display: flex; align-items: center; gap: 9px; }
 .language-control { height: 36px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); }
 .language-control svg { width: 15px; }

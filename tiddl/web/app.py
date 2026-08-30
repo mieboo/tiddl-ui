@@ -876,12 +876,12 @@ def page_response(name: str) -> HTMLResponse:
 
 @app.get("/")
 async def index() -> HTMLResponse:
-    return page_response("index.html")
+    return page_response("spa.html")
 
 
 @app.get("/player")
 async def player_page() -> HTMLResponse:
-    return page_response("player.html")
+    return page_response("spa.html")
 
 
 @app.get("/manifest.webmanifest")

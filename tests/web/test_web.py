@@ -77,15 +77,17 @@ def test_player_speed_rejects_unknown_session():
 def test_page_responses_version_static_assets():
     from tiddl.web.app import page_response
 
-    player = page_response("player.html")
-    player_html = player.body.decode()
-    index_html = page_response("index.html").body.decode()
+    spa_html = page_response("spa.html").body.decode()
 
-    assert "/static/player.js?v=" in player_html
-    assert "/static/app.js?v=" in index_html
-    assert '"/static/player.js"' not in player_html
-    assert '"/static/styles.css"' not in index_html
-    assert player.headers["cache-control"] == "no-cache"
+    assert "/static/player.js?v=" in spa_html
+    assert "/static/app.js?v=" in spa_html
+    assert "/static/router.js?v=" in spa_html
+    assert '"/static/player.js"' not in spa_html
+    assert '"/static/styles.css"' not in spa_html
+    assert spa_html.count('id="languageSelect"') == 1
+    assert 'id="view-downloads"' in spa_html
+    assert 'id="view-player"' in spa_html
+    assert page_response("spa.html").headers["cache-control"] == "no-cache"
 
 
 def test_lan_addresses_keep_only_private_ipv4(monkeypatch):

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0c0e">
+  <title>Abducted Tidal Player</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("tiddl-theme") || "dark";
+    const _lang = localStorage.getItem("tiddl-language") || "en";
+    document.documentElement.lang = _lang === "zh" ? "zh-CN" : "en";
+    if (_lang === "zh") document.documentElement.dataset.i18nPending = "";
+  </script>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/player.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Abducted Tidal Player home">
+      <span class="brand-mark"><svg viewBox="8 8.5 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M32 19 L44.4 28 L39.6 42.5 L24.4 42.5 L19.6 28 Z"/><path d="M44.4 28 L51 25.9 M39.6 42.5 L43.8 48.2 M24.4 42.5 L20.2 48.2 M19.6 28 L13 25.9"/><circle cx="44.4" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="39.6" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="24.4" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="19.6" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="51" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="43.8" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="20.2" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="13" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="32" cy="19" r="5.2" fill="currentColor" stroke="none"/></svg></span>
+      <span>ATP</span>
+    </a>
+    <span id="playSpeed" class="play-speed" hidden><i data-lucide="activity"></i><strong id="playSpeedValue">0 B/s</strong></span>
+    <nav class="topbar-nav">
+      <a href="/" data-route-link="downloads" data-i18n="downloads">Downloads</a><a href="/player" data-route-link="player" data-i18n="player">Player</a>
+    </nav>
+    <div class="top-actions">
+      <button id="qrButton" class="icon-button bordered downloads-only" type="button" aria-label="Use on phone" title="Use on phone"><i data-lucide="smartphone"></i></button>
+      <label class="language-control" aria-label="Interface language">
+        <i data-lucide="languages"></i>
+        <select id="languageSelect">
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+        </select>
+      </label>
+      <button id="themeButton" class="icon-button bordered" type="button" aria-label="Switch color theme" title="Switch color theme"><i data-lucide="sun"></i></button>
+      <button id="authButton" class="button button-secondary downloads-only" type="button"><i data-lucide="log-in"></i><span>Sign in</span></button>
+    </div>
+  </header>
+
+  <!-- ===================== 下载视图 ===================== -->
+  <main id="view-downloads" class="shell">
+    <section class="workspace" aria-label="New download">
+      <div class="workspace-meta">
+        <div id="systemFacts" class="system-facts"></div>
+      </div>
+
+      <form id="downloadForm" class="download-form">
+        <div class="field resource-field">
+          <div class="resource-label-row">
+            <label for="urls" data-i18n="resourceLabel">Search Tidal or add links</label>
+            <div class="resource-actions">
+              <button id="advancedButton" class="icon-button bordered" type="button" title="Advanced" aria-label="Advanced">
+                <i data-lucide="sliders-horizontal"></i>
+              </button>
+              <button class="icon-button download-icon-button" type="submit" title="Start download" aria-label="Start download">
+                <i data-lucide="download"></i>
+              </button>
+            </div>
+          </div>
+          <div class="resource-input">
+            <textarea id="urls" rows="1" placeholder="Search tracks and albums, or paste a Tidal link"></textarea>
+            <section id="previewPanel" class="preview-panel" hidden aria-live="polite"></section>
+            <section id="searchResults" class="search-results" hidden aria-live="polite"></section>
+          </div>
+        </div>
+        <div id="formMessage" class="form-message" role="status"></div>
+      </form>
+    </section>
+
+    <aside class="activity" aria-labelledby="activityHeading">
+      <div class="activity-header">
+        <div>
+          <h2 id="activityHeading" data-i18n="activity">Activity</h2>
+        </div>
+        <button id="refreshButton" class="icon-button" type="button" title="Refresh tasks" aria-label="Refresh tasks"><i data-lucide="refresh-cw"></i></button>
+      </div>
+      <div id="jobList" class="job-list"></div>
+      <div id="emptyState" class="empty-state">
+        <i data-lucide="list-music"></i>
+        <p data-i18n="noDownloads">No downloads yet</p>
+        <span data-i18n="emptyHint">Your active and recent tasks will appear here.</span>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ===================== 播放器视图 ===================== -->
+  <main id="view-player" class="player-shell">
+    <section class="library-panel">
+      <div class="queue-head">
+        <div class="library-tabs">
+          <button class="library-tab active" data-library-tab="playlist" type="button"><span data-i18n="playlist">Playlist</span><span class="tab-count" id="queueCount">0</span></button>
+          <button class="library-tab" data-library-tab="favorites" type="button"><span data-i18n="favorites">Favorites</span><span class="tab-count" id="favCount">0</span></button>
+          <button class="library-tab" data-library-tab="following" type="button"><span data-i18n="following">Following</span><span class="tab-count" id="followCount">0</span></button>
+</div>
+      </div>
+      <div class="player-resource-input">
+        <div class="player-search-wrap">
+          <i data-lucide="search"></i><input id="playerSearch" type="search" data-placeholder="searchPlaceholder" placeholder="Search tracks and albums, or paste a Tidal link">
+          <span id="searchSpinner" hidden><i data-lucide="loader-circle"></i></span>
+          <span class="queue-remove" id="clearQueue" data-title="clear" hidden><i data-lucide="trash-2"></i></span>
+        </div>
+        <div id="playerSearchResults" class="player-search-results" hidden></div>
+        <div id="playerQueue" class="player-queue"></div>
+        <div id="queueEmpty" class="player-empty"><i data-lucide="list-music"></i><span data-i18n="empty">Search or paste a track or album link</span></div>
+        <div id="playerFavorites" class="player-queue" hidden></div>
+        <div id="favEmpty" class="player-empty" hidden><i data-lucide="heart"></i><span data-i18n="favEmpty">Tracks you favorite will appear here</span></div>
+        <div class="player-search-wrap" id="followSearchWrap"><i data-lucide="search"></i><input id="followSearch" type="search" autocomplete="off" data-placeholder="followSearchPlaceholder" placeholder="Filter followed artists"></div>
+        <div id="playerFollowing" class="player-queue" hidden></div>
+        <div id="followEmpty" class="player-empty" hidden><i data-lucide="user-round-plus"></i><span data-i18n="followEmpty">Artists you follow will appear here</span></div>
+      </div>
+    </section>
+    <section class="now-panel">
+      <div class="now-art" id="nowArt"><img id="nowCover" alt=""><span id="coverPlaceholder"><i data-lucide="music-2"></i></span><div id="coverLyrics" class="cover-lyrics" hidden></div></div>
+      <div class="now-copy"><h2 id="nowTitle" data-i18n="nothingPlaying">Nothing playing</h2><p id="nowArtist"><span id="nowArtistName" class="copy-link" data-artist-open="">Abducted Tidal Player</span><span class="copy-sep"> · </span><span id="nowAlbumName" class="copy-link" data-album-info=""></span></p></div>
+      <div id="playerError" class="player-error" role="status"></div>
+      <div class="seek-row"><span id="elapsed">0:00</span><input id="seek" type="range" min="0" max="1000" value="0"><span id="duration">0:00</span></div>
+      <div class="transport">
+        <button id="favoriteButton" class="icon-button" type="button" data-title="favorite" disabled><i data-lucide="heart"></i></button>
+        <button id="shuffle" class="icon-button" type="button" data-title="shuffle"><i data-lucide="shuffle"></i></button>
+        <button id="previous" class="icon-button" type="button" data-title="previous"><i data-lucide="skip-back"></i></button>
+        <button id="play" class="play-button" type="button" data-title="play"><i data-lucide="play"></i></button>
+        <button id="next" class="icon-button" type="button" data-title="next"><i data-lucide="skip-forward"></i></button>
+        <button id="repeat" class="icon-button" type="button" data-title="repeat"><i data-lucide="repeat"></i><small></small></button>
+        <button id="downloadButton" class="icon-button" type="button" data-title="download" disabled><i data-lucide="download"></i></button>
+      </div>
+      <div class="play-options">
+        <div class="play-quality"><i data-lucide="gauge"></i><div id="qualityControl" class="preview-specs quality-specs"></div></div>
+        <button id="playerSettingsButton" class="icon-button player-settings-button" type="button" data-title="settings" title="Player settings"><i data-lucide="settings-2"></i></button>
+        <div class="volume"><button id="mute" class="icon-button" type="button" data-title="mute"><i data-lucide="volume-2"></i></button><input id="volume" type="range" min="0" max="1" value="0.8" step="0.01"></div>
+      </div>
+      <audio id="audio" preload="metadata"></audio>
+    </section>
+    <aside class="lyrics-panel">
+      <div class="library-tabs lyrics-tabs">
+        <button class="library-tab active" data-panel-tab="artist" type="button"><span data-i18n="artistTab">Artist</span></button>
+        <button class="library-tab" data-panel-tab="info" type="button"><span data-i18n="infoTab">Info</span></button>
+        <button class="library-tab" data-panel-tab="lyrics" type="button"><span data-i18n="lyrics">Lyrics</span></button>
+      </div>
+      <div class="lyrics-body">
+        <div id="artistView" class="artist-view" hidden></div>
+        <div id="infoView" class="info-view" hidden></div>
+        <div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ===================== 下载视图对话框 ===================== -->
+  <dialog id="advancedDialog" class="advanced-dialog">
+    <div class="dialog-head">
+      <h2 data-i18n="advanced">Advanced</h2>
+      <button class="icon-button" data-close-advanced type="button" aria-label="Close"><i data-lucide="x"></i></button>
+    </div>
+    <div class="advanced-grid">
+      <label class="field">
+        <span data-i18n="downloadFolder">Download folder</span>
+        <input id="downloadPath" type="text" placeholder="~/Music/tiddl">
+      </label>
+      <label class="field">
+        <span data-i18n="outputTemplate">Output template</span>
+        <input id="outputTemplate" type="text" placeholder="{album.artist}/{album.title}/{item.title}">
+      </label>
+      <label class="field compact-field">
+        <span data-i18n="concurrentDownloads">Concurrent downloads</span>
+        <input id="threads" type="number" value="4" min="1" max="16">
+      </label>
+      <div class="advanced-toggles">
+        <label class="toggle-field">
+          <input id="skipExisting" type="checkbox" checked><span class="toggle"></span><span data-i18n="skipExisting">Skip existing files</span>
+        </label>
+        <label class="toggle-field">
+          <input id="defaultVideos" type="checkbox"><span class="toggle"></span><span data-i18n="defaultVideos">Download videos by default</span>
+        </label>
+        <label class="toggle-field">
+          <input id="defaultHighest" type="checkbox"><span class="toggle"></span><span data-i18n="defaultHighest">Use highest quality by default</span>
+        </label>
+        <label class="toggle-field">
+          <input id="defaultAtmos" type="checkbox"><span class="toggle"></span><span data-i18n="defaultAtmos">Enable Atmos by default</span>
+        </label>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="authDialog">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow" data-i18n="tidalAccount">Tidal accounts</p>
+        <h2 data-i18n="connectAccount">Account group</h2>
+      </div>
+      <button class="icon-button" data-close-dialog type="button" aria-label="Close"><i data-lucide="x"></i></button>
+    </div>
+    <div id="authContent" class="dialog-content"></div>
+  </dialog>
+
+  <dialog id="logDialog" class="log-dialog">
+    <div class="dialog-head">
+      <h2 id="logTitle" data-i18n="taskDetails">Task details</h2>
+      <button class="icon-button" data-close-log type="button" aria-label="Close"><i data-lucide="x"></i></button>
+    </div>
+    <pre id="logOutput"></pre>
+  </dialog>
+
+  <dialog id="qrDialog">
+    <div class="dialog-head">
+      <h2 data-i18n="qrTitle">Use on your phone</h2>
+      <button class="icon-button" data-close-qr type="button" aria-label="Close"><i data-lucide="x"></i></button>
+    </div>
+    <div class="dialog-content qr-content">
+      <canvas id="qrCanvas" width="180" height="180"></canvas>
+      <p id="qrBindWarning" class="qr-warn" hidden data-i18n="qrBindWarning"></p>
+      <ul id="qrUrls" class="qr-urls"></ul>
+      <p class="qr-hint" data-i18n="qrHint"></p>
+    </div>
+  </dialog>
+
+  <!-- ===================== 播放器对话框 ===================== -->
+  <dialog id="playerSettingsDialog" class="player-settings-dialog">
+    <div class="dialog-head"><h2 data-i18n="settings">Player settings</h2><button class="icon-button" data-close-settings type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
+    <div class="player-settings-content">
+      <label class="toggle-field"><input id="playerDefaultHighest" type="checkbox"><span class="toggle"></span><span data-i18n="defaultHighest">Play the highest quality by default</span></label>
+      <label class="toggle-field"><input id="playerDefaultAtmos" type="checkbox"><span class="toggle"></span><span data-i18n="defaultAtmos">Enable Atmos by default</span></label>
+    </div>
+  </dialog>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="/static/app.js"></script>
+  <script src="/static/player.js"></script>
+  <script src="/static/router.js"></script>
+</body>
+</html>
