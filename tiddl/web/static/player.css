@@ -76,7 +76,8 @@ strong.tscroll { font-size: 13px; font-weight: 650; }
 .fav-album .playlist-album-head { grid-template-columns: 50px minmax(0, 1fr) 28px 28px 28px 28px; }
 .playlist-album-head .preview-chevron { display: none; width: 0; min-width: 0; margin: 0; }
 .fav-album-loading { padding: 12px 14px; color: var(--muted); font-size: 11px; }
-.fav-track-row { grid-template-columns: 24px minmax(0,1fr) 28px 28px 28px 28px; }
+/* 双类名提升特异性:必须压过文件后方的 .playlist-track-row 三列模板 */
+.playlist-track-row.fav-track-row { grid-template-columns: 24px minmax(0,1fr) 28px 28px 28px 28px; }
 .fav-track-row .queue-remove { width: 28px; min-width: 28px; height: 28px; }
 .fav-track-row .track-name strong.tscroll { font-size: 12px; font-weight: 650; }
 .fav-track-row .track-name span.tscroll { font-size: 10px; }
