@@ -5,7 +5,9 @@ class AuthClientError(Exception):
         error: str | None = None,
         sub_status: str | None = None,
         error_description: str | None = None,
+        **kwargs,
     ):
+        # Tidal 鉴权错误 payload 可能带额外字段,用 **kwargs 吸收避免构造崩溃
         self.status = status
         self.error = error
         self.sub_status = sub_status

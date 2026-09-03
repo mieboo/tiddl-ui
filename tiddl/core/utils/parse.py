@@ -59,7 +59,12 @@ def parse_track_stream(track_stream: TrackStream) -> tuple[list[str], str]:
     | LOW             | m4a        | application/vnd.tidal.bts | audio/mp4  |
     | HIGH            | m4a        | application/vnd.tidal.bts | audio/mp4  |
     | LOSSLESS        | flac       | application/vnd.tidal.bts | audio/flac |
-    | HI_RES_LOSSLESS | m4a        | application/dash+xml      | audio/mp4  |
+    | HI_RES_LOSSLESS | flac       | application/vnd.tidal.bts | audio/flac |
+
+    Note: v1 API never actually returns a Hi-Res stream — requesting
+    HI_RES_LOSSLESS yields LOSSLESS (44.1kHz/16bit FLAC), and Atmos-only
+    tracks return eac3/ac4 regardless of the requested quality (see NOTES).
+    The file extension is therefore decided purely by the codec.
     """
 
     class TrackManifest(BaseModel):
@@ -78,10 +83,15 @@ def parse_track_stream(track_stream: TrackStream) -> tuple[list[str], str]:
         case "application/dash+xml":
             urls, codecs = parse_manifest_XML(decoded_manifest)
 
+        case _:
+            # 兜底:未知 MIME 时明确报错,避免 urls/codecs 未绑定 → UnboundLocalError
+            raise ValueError(
+                f"Unknown manifest MIME type `{track_stream.manifestMimeType}` "
+                f"(trackId {track_stream.trackId})"
+            )
+
     if codecs == "flac":
         file_extension = ".flac"
-        if track_stream.audioQuality == "HI_RES_LOSSLESS":
-            file_extension = ".m4a"
     elif codecs.startswith("mp4") or codecs in DOLBY_CODECS:
         file_extension = ".m4a"
     else:

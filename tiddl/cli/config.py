@@ -120,5 +120,24 @@ def load_config_file(config_file: Path) -> Config:
     return config
 
 
-CONFIG = load_config_file(APP_PATH / CONFIG_FILENAME)
+# 惰性配置缓存:首访填充,测试可用 set_config_for_tests 注入。
+# 模块级 CONFIG 保留兼容(typer 参数默认值 import 时求值,行为零变化)。
+_config_cache: Config | None = None
+
+
+def get_config() -> Config:
+    """返回配置(惰性加载,带缓存)。"""
+    global _config_cache
+    if _config_cache is None:
+        _config_cache = load_config_file(APP_PATH / CONFIG_FILENAME)
+    return _config_cache
+
+
+def set_config_for_tests(config: Config | None) -> None:
+    """仅测试用:注入配置或清空缓存,让下次 get_config 重新读盘。"""
+    global _config_cache
+    _config_cache = config
+
+
+CONFIG = get_config()
 log.debug(f"{CONFIG=}")

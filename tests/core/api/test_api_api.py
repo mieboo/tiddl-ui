@@ -152,7 +152,7 @@ def test_get_search(api: TidalAPI, mock_client: MockType):
 def test_get_session(api: TidalAPI, mock_client: MockType):
     api.get_session()
     mock_client.fetch.assert_called_once_with(
-        SessionResponse, "sessions", expire_after=DO_NOT_CACHE
+        SessionResponse, "sessions", expire_after=60
     )
 
 
@@ -190,7 +190,7 @@ def test_get_track_stream(api: TidalAPI, mock_client: MockType):
             "platform": "WEB",
             "sessionId": "session-1",
         },
-        expire_after=DO_NOT_CACHE,
+        expire_after=60,
         headers={"x-tidal-client-version": "2025.7.16"},
     )
 

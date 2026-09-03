@@ -1,10 +1,11 @@
-// 手写迷你路由:/ 与 /player 共存于同一文档,切换只显隐视图容器。
+// 手写迷你路由:/ 与 /downloads 共存于同一文档,切换只显隐视图容器。
+// 默认首页为播放器(/),下载器独立在 /downloads。
 // 音频元素在壳文档内,路由切换不卸载任何脚本上下文,播放天然连续。
 (function () {
-  const ROUTES = { "/": "downloads", "/player": "player" };
-  const TITLES = { downloads: "Abducted Tidal Player", player: "Player - Abducted Tidal Player" };
+  const ROUTES = { "/": "player", "/downloads": "downloads" };
+  const TITLES = { downloads: "Downloader - Abducted Tidal Player", player: "Player - Abducted Tidal Player" };
 
-  function currentRoute() { return ROUTES[location.pathname] || "downloads"; }
+  function currentRoute() { return ROUTES[location.pathname] || "player"; }
 
   function apply(route) {
     document.body.dataset.route = route;
@@ -26,7 +27,7 @@
     const link = event.target.closest("a[href]");
     if (!link) return;
     const href = link.getAttribute("href");
-    if (href !== "/" && href !== "/player") return;
+    if (href !== "/" && href !== "/downloads") return;
     event.preventDefault();
     navigate(href);
   });

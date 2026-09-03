@@ -1,6 +1,7 @@
 import json
 from logging import getLogger
 from pathlib import Path
+from threading import BoundedSemaphore
 from typing import Any, Type, TypeVar, Callable, Optional
 
 from pydantic import BaseModel
@@ -20,6 +21,10 @@ T = TypeVar("T", bound=BaseModel)
 API_URL = "https://api.tidal.com/v1"
 MAX_RETRIES = 5
 RETRY_DELAY = 2
+# 全局并发上限:限制同时进行的 Tidal 请求数(防用户并发操作触发限流)。
+# 只限制并发排队,不增加单次请求延迟,不影响前端体验。
+TIDAL_CONCURRENCY = 6
+_tidal_slot = BoundedSemaphore(TIDAL_CONCURRENCY)
 
 log = getLogger(__name__)
 
@@ -81,9 +86,18 @@ class TidalClient:
         request_kwargs = {"params": params, "expire_after": expire_after}
         if headers:
             request_kwargs["headers"] = headers
-        res = self.session.get(f"{API_URL}/{endpoint}", **request_kwargs)
+        with _tidal_slot:
+            res = self.session.get(f"{API_URL}/{endpoint}", **request_kwargs)
 
         if res.status_code == 401 and self.on_token_expiry:
+            if _attempt >= MAX_RETRIES:
+                log.error(f"Token refresh failed after {MAX_RETRIES} attempts")
+                raise ApiError(
+                    status=res.status_code,
+                    subStatus="0",
+                    userMessage="Token refresh failed.",
+                )
+
             token = self.on_token_expiry()
 
             if token:
@@ -95,7 +109,7 @@ class TidalClient:
                 params=params,
                 expire_after=expire_after,
                 headers=headers,
-                _attempt=MAX_RETRIES - 1,
+                _attempt=_attempt + 1,
             )
 
         log.debug(

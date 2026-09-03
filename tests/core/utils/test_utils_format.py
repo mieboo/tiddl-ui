@@ -101,3 +101,28 @@ class TestGenerateTemplateDataAlbumFallback:
         album = data["album"]
         assert album.title == ""
         assert album.artist == ""
+
+
+def test_validate_template_accepts_known_fields():
+    """阶段3: 合法字段应通过校验(不报错)。"""
+    from tiddl.core.utils.format import validate_template
+
+    errors = validate_template("{item.title}/{item.artist}/{album.title}/{playlist.title}")
+    assert errors == []
+
+
+def test_validate_template_rejects_unknown_fields():
+    """阶段3: 未知对象/字段应被标记(开发期暴露拼写错误)。"""
+    from tiddl.core.utils.format import validate_template
+
+    errors = validate_template("{item.titel}/{album.artst}/{typo.title}")
+    assert "item.titel" in errors
+    assert "album.artst" in errors
+    assert "typo.title" in errors
+
+
+def test_validate_template_accepts_now_and_extra():
+    """阶段3: now 与裸字段(extra 注入)不误报。"""
+    from tiddl.core.utils.format import validate_template
+
+    assert validate_template("{now:%Y}/{quality}") == []

@@ -1,0 +1,34 @@
+name: tiddl_mobile
+description: Abducted Tidal Player - native mobile client (v1 API, zero server bandwidth)
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # 网络:原生直连 Tidal CDN,无 CORS
+  dio: ^5.4.0
+  # 播放:ExoPlayer 封装,原生解 E-AC3/FLAC/AAC
+  media_kit: ^1.1.10
+  media_kit_video: ^1.2.4
+  media_kit_libs_video: ^1.0.4
+  # 后台播放 + 系统媒体控制
+  audio_service: ^0.18.13
+  # 本地存储
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.2
+  # 状态管理
+  provider: ^6.1.1
+  # 图标
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true

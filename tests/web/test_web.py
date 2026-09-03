@@ -24,6 +24,16 @@ from tiddl.web.app import (
     check_account_health,
     detect_download_options,
 )
+from tiddl.web.player import is_protected_stream
+
+
+def test_is_protected_stream_gate():
+    """明文/直连门禁:仅 manifest 的 encryptionType 判定,缺省视为明文。"""
+    assert is_protected_stream({}) is False
+    assert is_protected_stream({"encryptionType": "NONE"}) is False
+    assert is_protected_stream({"encryptionType": ""}) is False
+    assert is_protected_stream({"encryptionType": "CENC"}) is True
+    assert is_protected_stream({"encryptionType": "SAMPLE_AES"}) is True
 
 
 def test_player_quality_tiers_fall_back_from_requested_ceiling():

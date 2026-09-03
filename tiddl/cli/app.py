@@ -8,7 +8,7 @@ from tiddl.cli.ctx import ContextObject, Context
 from tiddl.cli.commands import register_commands
 from tiddl.core.utils.ffmpeg import is_ffmpeg_installed as ifs
 
-log = logging.getLogger("tiddl")
+log = logging.getLogger(__name__)
 
 app = typer.Typer(name="tiddl", no_args_is_help=True, rich_markup_mode="rich")
 register_commands(app)

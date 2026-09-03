@@ -39,7 +39,13 @@ Each object type exposes fields you can use inside templates.
 | `item.copyright`             | Copyright info (track only)            | `© 2023 Sony Music`             | str  |
 | `item.bpm`                   | Beats per minute (if available)        | `120`                           | int  |
 | `item.isrc`                  | ISRC code (track only)                 | `USQX91501234`                  | str  |
-| `item.quality`               | Audio/video quality                    | `HIGH`                          | str  |
+| `item.quality`               | Requested quality (`LOW`/`NORMAL`/`HIGH`/`MAX`, CLI tier) | `MAX`                          | str  |
+| `item.quality_actual`        | Actual v1 tier (`LOW`/`HIGH`/`LOSSLESS`/`HI_RES_LOSSLESS`) | `LOSSLESS`                     | str  |
+| `item.bit_depth`             | Bit depth (lossless only; empty for lossy)                 | `24`                           | int  |
+| `item.sample_rate`           | Sample rate in Hz (lossless only; empty for lossy)         | `192000`                       | int  |
+| `item.bitrate`               | Bitrate (lossy lookup: `96 kbps`/`320 kbps`; empty for FLAC) | `320 kbps`                   | str  |
+| `item.codec`                 | Codec display name (`FLAC`/`AAC-LC`/`HE-AAC`/`E-AC-3`)     | `FLAC`                         | str  |
+| `item.spec`                  | Full spec one-liner, e.g. `FLAC 16bit 44.1kHz`             | `FLAC 16bit 44.1kHz`           | str  |
 | `item.artist`                | Primary artist name                    | `Daft Punk`                     | str  |
 | `item.artists`               | All main artists                       | `Daft Punk, Pharrell Williams`  | str  |
 | `item.features`              | Featured artists                       | `Pharrell Williams`             | str  |

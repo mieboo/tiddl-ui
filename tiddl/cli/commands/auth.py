@@ -82,6 +82,20 @@ def login(
                     )
                     break
 
+                if e.error == "slow_down":
+                    # 请求过快:按服务器要求拉长轮询间隔(否则无限空转打爆限流)
+                    sleep(device_auth.interval)
+                    status.update(f"{status_text} slow_down, retrying...")
+                    continue
+
+                # access_denied / user_cancelled / 其他错误:停止轮询并报错,
+                # 避免既不 break 也不 raise 造成死循环。
+                status.console.print(
+                    f"\n[bold red]Authentication failed: {e.error or 'unknown error'} "
+                    f"({e.error_description or ''})"
+                )
+                raise typer.Exit(code=1) from e
+
 
 @auth_command.command(help="Logout and remove token from app.")
 def logout(

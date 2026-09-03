@@ -6,7 +6,7 @@ from typing import Any, TypeAlias
 
 from tiddl.core.auth.exceptions import AuthClientError
 
-log = logging.getLogger("tiddl")
+log = logging.getLogger(__name__)
 
 
 def get_auth_credentials() -> tuple[str, str]:
@@ -48,6 +48,7 @@ class AuthClient:
             "POST",
             f"{self.auth_url}/device_authorization",
             data={"client_id": self.client_id, "scope": "r_usr+w_usr+w_sub"},
+            timeout=30,
         )
 
         res.raise_for_status()
@@ -65,6 +66,7 @@ class AuthClient:
                 "scope": "r_usr+w_usr+w_sub",
             },
             auth=(self.client_id, self.client_secret),
+            timeout=30,
         )
 
         json_data = res.json()
@@ -85,6 +87,7 @@ class AuthClient:
                 "scope": "r_usr+w_usr+w_sub",
             },
             auth=(self.client_id, self.client_secret),
+            timeout=30,
         )
 
         res.raise_for_status()
@@ -96,6 +99,7 @@ class AuthClient:
             "POST",
             "https://api.tidal.com/v1/logout",
             headers={"authorization": f"Bearer {access_token}"},
+            timeout=30,
         )
 
         res.raise_for_status()

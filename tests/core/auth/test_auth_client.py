@@ -19,6 +19,7 @@ def test_get_device_auth_calls_request(mocker: MockerFixture):
         "POST",
         "https://auth.tidal.com/v1/oauth2/device_authorization",
         data={"client_id": client.client_id, "scope": "r_usr+w_usr+w_sub"},
+        timeout=30,
     )
 
     assert result == data
@@ -52,6 +53,7 @@ def test_get_auth_returns_json_on_200(mocker: MockerFixture):
             "scope": "r_usr+w_usr+w_sub",
         },
         auth=(client.client_id, client.client_secret),
+        timeout=30,
     )
 
 
@@ -82,6 +84,7 @@ def test_get_auth_raises_on_non_200(mocker: MockerFixture):
             "scope": "r_usr+w_usr+w_sub",
         },
         auth=(client.client_id, client.client_secret),
+        timeout=30,
     )
 
 
@@ -110,6 +113,7 @@ def test_refresh_token(mocker: MockerFixture):
             "scope": "r_usr+w_usr+w_sub",
         },
         auth=(client.client_id, client.client_secret),
+        timeout=30,
     )
 
     assert result["token"] == "abc"
@@ -125,4 +129,5 @@ def test_logout_token(mocker: MockerFixture):
         "POST",
         "https://api.tidal.com/v1/logout",
         headers={"authorization": "Bearer token"},
+        timeout=30,
     )

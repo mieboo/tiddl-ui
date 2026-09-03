@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0c0e">
+  <title>领取账号 - Abducted Tidal Player</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("tiddl-theme") || "dark";
+    const _lang = localStorage.getItem("tiddl-language") || "zh";
+    document.documentElement.lang = _lang === "zh" ? "zh-CN" : "en";
+  </script>
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    body { background: var(--bg); color: var(--text); }
+    .giveaway-wrap { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+    .giveaway-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; padding: 30px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 18px 50px rgba(0,0,0,.35); }
+    .giveaway-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; margin-bottom: 4px; }
+    .giveaway-brand h1 { margin: 0; font-size: 19px; }
+    .giveaway-brand p { margin: 0; color: var(--muted); font-size: 13px; }
+    .giveaway-stats { display: flex; justify-content: space-around; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+    .giveaway-stats .stat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .giveaway-stats .stat b { font-size: 20px; color: var(--accent); }
+    .giveaway-stats .stat span { color: var(--muted); font-size: 11.5px; }
+    .giveaway-msg { color: var(--muted); font-size: 13px; line-height: 1.6; text-align: center; }
+    .giveaway-claim { width: 100%; height: 44px; border: 0; border-radius: 9px; background: var(--accent); color: #07130d; font-size: 14.5px; font-weight: 600; cursor: pointer; transition: filter .12s; }
+    .giveaway-claim:hover { filter: brightness(1.08); }
+    .giveaway-claim:disabled { opacity: .55; cursor: default; }
+    .creds { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-dark); }
+    .creds .row { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+    .creds .row span { color: var(--muted); }
+    .creds .row b { word-break: break-all; }
+    .giveaway-links { display: flex; justify-content: center; gap: 16px; margin-top: 2px; }
+    .giveaway-links a { color: var(--muted); font-size: 12.5px; text-decoration: none; }
+    .giveaway-links a:hover { color: var(--accent); }
+    .giveaway-loading { display: flex; justify-content: center; color: var(--muted); font-size: 13px; padding: 10px 0; }
+  </style>
+</head>
+<body>
+  <div class="giveaway-wrap">
+    <div class="giveaway-card">
+      <div class="giveaway-brand">
+        <span class="brand-mark"><svg viewBox="8 8.5 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M32 19 L44.4 28 L39.6 42.5 L24.4 42.5 L19.6 28 Z"/><path d="M44.4 28 L51 25.9 M39.6 42.5 L43.8 48.2 M24.4 42.5 L20.2 48.2 M19.6 28 L13 25.9"/><circle cx="44.4" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="39.6" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="24.4" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="19.6" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="51" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="43.8" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="20.2" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="13" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="32" cy="19" r="5.2" fill="currentColor" stroke="none"/></svg></span>
+        <h1 data-i18n="giftTitle">领取账号</h1>
+        <p data-i18n="giftSubtitle">先到先得 · 每个浏览器限领一次</p>
+      </div>
+      <div class="giveaway-stats">
+        <div class="stat"><b id="statAvailable">-</b><span data-i18n="giftLeft">剩余</span></div>
+        <div class="stat"><b id="statTotal">-</b><span data-i18n="giftTotal">总数</span></div>
+        <div class="stat"><b id="statClaimed">-</b><span data-i18n="giftClaimed">已领</span></div>
+      </div>
+      <div id="giveawayLoading" class="giveaway-loading" data-i18n="giftChecking">正在检测你的浏览器...</div>
+      <div id="giveawayMsg" class="giveaway-msg" hidden></div>
+      <div id="giveawayCreds" class="creds" hidden>
+        <div class="row"><span data-i18n="giftUser">账号</span><b id="credUser"></b></div>
+        <div class="row"><span data-i18n="giftPass">密码</span><b id="credPass"></b></div>
+      </div>
+      <button id="claimBtn" class="giveaway-claim" type="button" hidden data-i18n="giftClaim">立即领取</button>
+      <div class="giveaway-links">
+        <a href="/" data-i18n="giftBackHome">返回播放器</a>
+        <a href="/downloads" data-i18n="giftBackDownloader">下载器</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  "use strict";
+  const LANG = document.documentElement.lang === "zh-CN";
+  const T = {
+    giftTitle: ["领取账号", "Claim Account"],
+    giftSubtitle: ["先到先得 · 每个浏览器限领一次", "First come, first served · One per browser"],
+    giftLeft: ["剩余", "Left"],
+    giftTotal: ["总数", "Total"],
+    giftClaimed: ["已领", "Claimed"],
+    giftChecking: ["正在检测你的浏览器...", "Checking your browser..."],
+    giftAvailable: ["还有 {n} 个账号待领取", "{n} accounts available"],
+    giftSoldOut: ["很遗憾，所有账号已领完。", "Sorry, all accounts are claimed."],
+    giftAlready: ["你已在本浏览器领取过账号：", "You already claimed an account on this browser:"],
+    giftClaim: ["立即领取", "Claim now"],
+    giftClaiming: ["领取中...", "Claiming..."],
+    giftGot: ["领取成功！请保存好账号密码。", "Success! Save your credentials."],
+    giftError: ["领取失败，请重试。", "Claim failed, please retry."],
+    giftBackHome: ["返回播放器", "Back to player"],
+    giftBackDownloader: ["下载器", "Downloader"],
+    giftCopy: ["已复制", "Copied"],
+  };
+  const t = (k, vars) => {
+    let s = (T[k] || ["", ""])[LANG ? 0 : 1];
+    if (vars) for (const kk in vars) s = s.replace("{" + kk + "}", vars[kk]);
+    return s;
+  };
+  const $ = (id) => document.getElementById(id);
+  document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = t(el.dataset.i18n));
+  document.title = t("giftTitle") + " - Abducted Tidal Player";
+
+  // 浏览器指纹:canvas + webgl + UA + 屏幕 + 时区等特征 → SHA-256
+  async function computeFingerprint() {
+    const parts = [];
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 240; canvas.height = 60;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.textBaseline = "top";
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#f60"; ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = "#069"; ctx.fillText("Cwm fjordbank glyphs vext quiz, \ud83d\ude03", 2, 15);
+        ctx.fillStyle = "rgba(102, 204, 0, 0.7)"; ctx.fillText("Cwm fjordbank glyphs vext quiz, \ud83d\ude03", 4, 17);
+        parts.push(canvas.toDataURL());
+      }
+    } catch (e) { parts.push("canvas:err"); }
+    try {
+      const gl = document.createElement("canvas").getContext("webgl");
+      if (gl) {
+        const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+        if (dbg) parts.push(String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) + "|" + String(gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)));
+      }
+    } catch (e) { parts.push("webgl:err"); }
+    parts.push(
+      navigator.userAgent, navigator.language, (navigator.languages || []).join(","),
+      navigator.platform || "", navigator.hardwareConcurrency || "",
+      navigator.deviceMemory || "", screen.width + "x" + screen.height, screen.colorDepth,
+      new Date().getTimezoneOffset(),
+      (Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions().timeZone) || ""
+    );
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(parts.join("|")));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function api(path, opts) {
+    const res = await fetch(path, opts);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "request failed");
+    return data;
+  }
+
+  let fp = null;
+  async function init() {
+    try { fp = await computeFingerprint(); } catch (e) { fp = "fp-error"; }
+    let status = null;
+    try { status = await api("/api/giveaway/status?fp=" + encodeURIComponent(fp)); }
+    catch (e) { status = { total: 0, available: 0, claimed: false, username: null, password_revealed: false }; }
+    $("statTotal").textContent = status.total;
+    $("statAvailable").textContent = status.available;
+    $("statClaimed").textContent = status.total - status.available;
+    $("giveawayLoading").hidden = true;
+    $("giveawayMsg").hidden = false;
+    if (status.claimed) {
+      $("giveawayMsg").textContent = t("giftAlready") + " " + status.username;
+      if (status.username) $("giveawayMsg").textContent = t("giftAlready") + " " + status.username;
+      // 密码只显示一次:已领取且之前显示过,不再显示密码
+      $("claimBtn").hidden = true;
+    } else if (status.available <= 0) {
+      $("giveawayMsg").textContent = t("giftSoldOut");
+      $("claimBtn").hidden = true;
+    } else {
+      $("giveawayMsg").textContent = t("giftAvailable", { n: status.available });
+      $("claimBtn").hidden = false;
+    }
+  }
+
+  $("claimBtn").addEventListener("click", async () => {
+    const btn = $("claimBtn");
+    btn.disabled = true; btn.textContent = t("giftClaiming");
+    try {
+      const result = await api("/api/giveaway/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fp }),
+      });
+      if (result.newly && result.username && result.password) {
+        $("giveawayMsg").textContent = t("giftGot");
+        $("credUser").textContent = result.username;
+        $("credPass").textContent = result.password;
+        $("giveawayCreds").hidden = false;
+        btn.hidden = true;
+        $("statAvailable").textContent = Math.max(0, Number($("statAvailable").textContent) - 1);
+        $("statClaimed").textContent = Number($("statClaimed").textContent) + 1;
+        try {
+          await navigator.clipboard.writeText(result.username + "\n" + result.password);
+        } catch (e) { /* ignore */ }
+      } else if (result.username) {
+        $("giveawayMsg").textContent = t("giftAlready") + " " + result.username;
+        btn.hidden = true;
+      } else {
+        $("giveawayMsg").textContent = t("giftSoldOut");
+        btn.hidden = true;
+      }
+    } catch (e) {
+      $("giveawayMsg").textContent = t("giftError");
+      btn.disabled = false; btn.textContent = t("giftClaim");
+    }
+  });
+
+  init();
+  </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ from .models.base import (
     AlbumItems,
     AlbumItemsCredits,
     ArtistAlbumsItems,
+    ArtistTracksItems,
     ArtistVideosItems,
     Favorites,
     MixItems,
@@ -148,6 +149,24 @@ class TidalAPI:
             expire_after=3600,
         )
 
+    def get_artist_top_tracks(
+        self,
+        artist_id: ID,
+        limit: int = Limits.ALBUM_ITEMS_MAX,
+        offset: int = 0,
+    ):
+        # 返回该艺人参与的曲目(含作为演唱者/合作艺人参与的作品),专辑主艺人作品也包含
+        return self.client.fetch(
+            ArtistTracksItems,
+            f"artists/{artist_id}/toptracks",
+            {
+                "countryCode": self.country_code,
+                "limit": min(limit, Limits.ALBUM_ITEMS_MAX),
+                "offset": offset,
+            },
+            expire_after=3600,
+        )
+
     def get_mix_items(
         self,
         mix_id: str,
@@ -204,7 +223,10 @@ class TidalAPI:
         )
 
     def get_session(self):
-        return self.client.fetch(SessionResponse, "sessions", expire_after=DO_NOT_CACHE)
+        # 短缓存:短窗口内复用同一会话,使 get_track_stream 的缓存键稳定命中
+        # (sessionId 相同 → 同一曲目的流缓存可命中,降低 Tidal 调用量与限流风险)。
+        # Tidal 会话本身有效期远大于 60s,复用安全。
+        return self.client.fetch(SessionResponse, "sessions", expire_after=60)
 
     def get_track_lyrics(self, track_id: ID):
         return self.client.fetch(
@@ -239,7 +261,9 @@ class TidalAPI:
             TrackStream,
             f"tracks/{track_id}/playbackinfopostpaywall",
             params,
-            expire_after=DO_NOT_CACHE,
+            # 短缓存:同一账号同一曲目短窗口内重复播放不重复请求 Tidal(降低限流风险)。
+            # 流 URL 有时效性(约 1 小时),60s 缓存窗口远小于此,不影响播放。
+            expire_after=60,
             headers={"x-tidal-client-version": "2025.7.16"},
         )
 

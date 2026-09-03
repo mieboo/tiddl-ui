@@ -91,3 +91,27 @@ def test_fetch_error_raises_api_error(mocker: MockerFixture, tmp_path: Path):
 
     with pytest.raises(ApiError):
         client.fetch(DummyModel, "bad/endpoint")
+
+
+def test_fetch_401_retries_bounded_when_token_expiry_fails(
+    mocker: MockerFixture, tmp_path: Path
+):
+    """P0-1: 401 + on_token_expiry 返回 None 时,递归必须有上限,不能无限递归。"""
+    mock_session = mocker.Mock()
+    mock_response = mocker.Mock()
+    mock_response.status_code = 401
+    mock_response.from_cache = False
+    mock_session.get.return_value = mock_response
+
+    mocker.patch("tiddl.core.api.client.API_URL", "https://api.test")
+    # on_token_expiry 永远返回 None(token 刷新失败)
+    client = TidalClient(
+        "token", tmp_path / "cache", on_token_expiry=lambda: None
+    )
+    client.session = mock_session
+
+    with pytest.raises(ApiError):
+        client.fetch(DummyModel, "albums/123")
+
+    # 最多应调用 1 + MAX_RETRIES 次(首次 + 递归),绝不能无限
+    assert mock_session.get.call_count <= 1 + 5

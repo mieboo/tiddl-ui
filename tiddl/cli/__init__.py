@@ -10,6 +10,6 @@ file_handler.setFormatter(
     )
 )
 
-log = logging.getLogger("tiddl")
+log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 log.addHandler(file_handler)

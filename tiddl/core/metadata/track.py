@@ -12,7 +12,7 @@ from mutagen.mp4 import MP4 as MutagenMP4, MP4Cover
 from tiddl.core.api.models import AlbumItemsCredits, Track
 
 
-log = logging.getLogger("tiddl")
+log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)

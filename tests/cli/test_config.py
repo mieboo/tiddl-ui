@@ -75,3 +75,20 @@ def test_invalid_track_quality_raises(tmp_path: Path):
 
     with raises(Exception):
         load_config_file(cfg_file)
+
+
+def test_get_config_lazy_and_injectable(tmp_path, monkeypatch):
+    """P1-4: get_config 惰性加载缓存 + set_config_for_tests 可注入(不改 51 处引用)。"""
+    from tiddl.cli.config import get_config, set_config_for_tests, Config
+
+    # 注入自定义配置
+    injected = Config(debug=True)
+    set_config_for_tests(injected)
+    try:
+        assert get_config() is injected
+        # 清空缓存 → 重新读盘(用默认路径,不报错即可)
+        set_config_for_tests(None)
+        cfg = get_config()
+        assert isinstance(cfg, Config)
+    finally:
+        set_config_for_tests(None)

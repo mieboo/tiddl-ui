@@ -39,3 +39,15 @@ def test_auth_client_error_string():
     e = AuthClientError(**data)
 
     assert str(e) == f"{e.error}, {e.error_description}, {e.status}/{e.sub_status}"
+
+
+def test_auth_client_error_extra_keys_absorbed():
+    """P0-2: AuthClientError 多余键应被吸收,不应 TypeError。"""
+    e = AuthClientError(error="slow_down", extra_key=1)
+    assert e.error == "slow_down"
+
+
+def test_auth_client_error_empty():
+    """P0-2: AuthClientError 空构造不崩。"""
+    e = AuthClientError()
+    assert e.error is None

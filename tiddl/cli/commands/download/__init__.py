@@ -4,15 +4,19 @@ import asyncio
 
 from pathlib import Path
 from logging import getLogger
+from dataclasses import dataclass, field
 from rich.live import Live
 
 from typing_extensions import Annotated
 
 from tiddl.core.metadata import add_track_metadata, add_video_metadata, Cover
+
+MAX_COVER_SIZE = 1080  # 封面下载最大边长
 from tiddl.core.api import ApiError
 from tiddl.core.api.models import Album, Track, Video, AlbumItemsCredits
 from tiddl.core.utils.format import format_template
 from tiddl.core.utils.m3u import save_tracks_to_m3u
+from tiddl.core.utils.spec import StreamSpec
 from tiddl.cli.config import (
     CONFIG,
     TRACK_QUALITY_LITERAL,
@@ -35,6 +39,618 @@ download_command = typer.Typer(name="download")
 register_subcommands(download_command)
 
 log = getLogger(__name__)
+
+
+@dataclass
+class TrackMetadata:
+    """Per-track metadata collected while downloading an album/playlist."""
+
+    date: str = ""
+    artist: str = ""
+    credits: list[AlbumItemsCredits.ItemWithCredits.CreditsEntry] = field(default_factory=list)
+    cover: Cover | None = None
+    album_review: str = ""
+
+
+def item_info(item) -> str:
+    """Human-readable identifier for error messages (track/video/album)."""
+    title = getattr(item, "title", "Unknown")
+    info = f"{title} (ID: {item.id})"
+    album = getattr(item, "album", None)
+    if album:
+        info += f", Album ID: {album.id}"
+    return info
+
+
+def report_error(console, exc: Exception, *, info: str = "", raise_errors: bool = False) -> None:
+    """Print a consistent error line; re-raise when --raise-errors is set."""
+    label = "API Error" if isinstance(exc, ApiError) else "Error"
+    suffix = f" ({info})" if info else ""
+    console.print(f"[red]{label}:[/] {exc}{suffix}")
+    if raise_errors:
+        raise exc
+
+
+def paginate(fetch_page):
+    """Yield items across pages of a Tidal collection API call.
+
+    ``fetch_page(offset)`` must return an object exposing ``items``,
+    ``limit`` and ``totalNumberOfItems``.
+    """
+    offset = 0
+    while True:
+        page = fetch_page(offset)
+        yield from page.items
+        offset += page.limit
+        if offset >= page.totalNumberOfItems:
+            break
+
+class DownloadSession:
+    """Orchestrates the CLI ``download`` pipeline for one invocation."""
+
+    def __init__(
+        self,
+        ctx: Context,
+        *,
+        track_quality: TRACK_QUALITY_LITERAL,
+        video_quality: VIDEO_QUALITY_LITERAL,
+        skip_existing: bool,
+        rewrite_metadata: bool,
+        threads_count: int,
+        download_path: Path,
+        scan_path: Path,
+        template: str,
+        singles_filter: ARTIST_SINGLES_FILTER_LITERAL,
+        videos_filter: VIDEOS_FILTER_LITERAL,
+        raise_errors: bool,
+        dolby_atmos_filter: ATMOS_FILTER_LITERAL,
+    ) -> None:
+        self.ctx = ctx
+        self.track_quality = track_quality
+        self.video_quality = video_quality
+        self.skip_existing = skip_existing
+        self.rewrite_metadata = rewrite_metadata
+        self.threads_count = threads_count
+        self.download_path = download_path
+        self.scan_path = scan_path
+        self.template = template
+        self.singles_filter = singles_filter
+        self.videos_filter = videos_filter
+        self.raise_errors = raise_errors
+        self.dolby_atmos_filter = dolby_atmos_filter
+        self.rich_output: RichOutput | None = None
+        self.downloader: Downloader | None = None
+
+    def write_lrc_file(self, track: Track, lyrics: str, file_path: Path) -> None:
+        if not CONFIG.download.write_lrc_file or not lyrics.strip():
+            return
+
+        lrc_file_path = file_path.with_suffix(".lrc")
+
+        try:
+            with open(lrc_file_path, "w", encoding="utf-8") as f:
+                f.write(lyrics)
+        except Exception as e:
+            log.error(
+                f"Failed to write LRC file for track {track.title} (ID: {track.id}): {e}"
+            )
+
+    def save_m3u(
+        self,
+        resource_type: VALID_M3U_RESOURCE_LITERAL,
+        filename: str,
+        tracks_with_path: list[tuple[Path, Track]],
+    ) -> None:
+        if not CONFIG.m3u.save:
+            return
+
+        if resource_type not in CONFIG.m3u.allowed:
+            return
+
+        tracks_with_existing_paths = [
+            (path, track)
+            for (path, track) in tracks_with_path
+            if path and isinstance(track, Track)
+        ]
+
+        log.debug(f"{resource_type=}, {filename=}, {len(tracks_with_existing_paths)=}")
+
+        save_tracks_to_m3u(
+            tracks_with_path=tracks_with_existing_paths,
+            path=self.download_path / filename,
+        )
+
+    def get_item_quality(self, item: Track | Video) -> str:
+        def predict_item_quality() -> TRACK_QUALITY_LITERAL | VIDEO_QUALITY_LITERAL:
+            if isinstance(item, Track):
+                if self.track_quality in ["low", "normal"]:
+                    return self.track_quality
+
+                if (
+                    self.track_quality == "max"
+                    and "HIRES_LOSSLESS" not in item.mediaMetadata.tags
+                ):
+                    return "high"
+
+                return self.track_quality
+
+            elif isinstance(item, Video):
+                # TODO add missing Video.quality literals so this function can work properly
+                return self.video_quality
+
+            raise TypeError("Unsupported item type")
+
+        return predict_item_quality().upper()
+
+    def run(self) -> None:
+        asyncio.run(self._run())
+
+    async def _run(self) -> None:
+        rich_output = RichOutput(self.ctx.obj.console)
+
+        downloader = Downloader(
+            tidal_api=self.ctx.obj.api,
+            threads_count=self.threads_count,
+            rich_output=rich_output,
+            track_quality=self.track_quality,
+            video_quality=self.video_quality,
+            videos_filter=self.videos_filter,
+            skip_existing=not self.skip_existing,
+            download_path=self.download_path,
+            scan_path=self.scan_path,
+            match_existing_path_case=CONFIG.download.match_existing_path_case,
+            dolby_atmos_filter=self.dolby_atmos_filter,
+        )
+        self.rich_output = rich_output
+        self.downloader = downloader
+
+        with Live(
+            rich_output.group,
+            refresh_per_second=10,
+            console=self.ctx.obj.console,
+            transient=True,
+        ):
+
+            async def wrapper(r: TidalResource):
+                try:
+                    await self.handle_resource(r)
+                except Exception as e:
+                    report_error(self.ctx.obj.console, e, info=str(r), raise_errors=self.raise_errors)
+
+            await asyncio.gather(*(wrapper(r) for r in self.ctx.obj.resources))
+            await downloader.close()
+
+        rich_output.show_stats()
+
+    async def handle_item(
+        self,
+        item: Track | Video,
+        file_path: str,
+        track_metadata: TrackMetadata | None = None,
+    ) -> tuple[Path | None, Track | Video]:
+        log.debug(f"{item.id=}, {file_path=}")
+        self.rich_output.total_increment()
+
+        if not track_metadata:
+            track_metadata = TrackMetadata()
+
+        download_path, was_downloaded = await self.downloader.download(
+            item=item, file_path=Path(file_path)
+        )
+
+        log.debug(f"{download_path=}, {was_downloaded=}")
+
+        if (
+            CONFIG.metadata.enable
+            and download_path
+            # rewrite metadata when track was skipped due to already existing
+            and (self.rewrite_metadata or was_downloaded)
+        ):
+            if isinstance(item, Track):
+                lyrics_subtitles = ""
+
+                if CONFIG.metadata.lyrics or CONFIG.download.write_lrc_file:
+                    try:
+                        lyrics_subtitles = self.ctx.obj.api.get_track_lyrics(
+                            item.id
+                        ).subtitles
+                    except Exception as e:
+                        log.error(e)
+
+                if (
+                    not track_metadata.cover
+                    and item.album.cover
+                    and CONFIG.metadata.cover
+                ):
+                    track_metadata.cover = Cover(item.album.cover)
+
+                if track_metadata.cover and track_metadata.cover.data is None:
+                    track_metadata.cover.fetch_data()
+
+                self.write_lrc_file(item, lyrics_subtitles, download_path)
+
+                add_track_metadata(
+                    path=download_path,
+                    track=item,
+                    lyrics=lyrics_subtitles,
+                    album_artist=track_metadata.artist,
+                    cover_data=(
+                        track_metadata.cover.data
+                        if track_metadata.cover
+                        else None
+                    ),
+                    date=track_metadata.date,
+                    credits_contributors=track_metadata.credits,
+                    comment=track_metadata.album_review,
+                )
+
+            elif isinstance(item, Video):
+                add_video_metadata(path=download_path, video=item)
+
+        if download_path and CONFIG.download.update_mtime:
+            try:
+                os.utime(download_path, None)
+            except Exception:
+                log.warning(f"could not update mtime for {download_path}")
+
+        return download_path, item
+
+    async def handle_resource(self, resource: TidalResource):
+        resource_total = 0
+        resource_completed = 0
+
+        async def tracked_item(*args, **kwargs):
+            nonlocal resource_total, resource_completed
+            resource_total += 1
+            emit_web_event(
+                "resource_progress",
+                completed=resource_completed,
+                total=resource_total,
+            )
+            try:
+                return await self.handle_item(*args, **kwargs)
+            finally:
+                resource_completed += 1
+                emit_web_event(
+                    "resource_progress",
+                    completed=resource_completed,
+                    total=resource_total,
+                )
+
+        async def download_album(album: Album):
+            futures = []
+
+            cover: Cover | None = None
+            save_cover = ("album" in CONFIG.cover.allowed) and CONFIG.cover.save
+
+            if album.cover and (CONFIG.metadata.cover or save_cover):
+                cover = Cover(album.cover, size=CONFIG.cover.size)
+
+            album_review = ""
+
+            if CONFIG.metadata.album_review:
+                try:
+                    album_review = self.ctx.obj.api.get_album_review(
+                        album_id=resource.id
+                    ).normalized_text()
+                except Exception as e:
+                    log.error(e)
+
+            for album_item in paginate(
+                lambda o: self.ctx.obj.api.get_album_items_credits(album_id=album.id, offset=o)
+            ):
+                try:
+                    template = self.template or CONFIG.templates.album
+                    file_path = format_template(
+                        template=template,
+                        item=album_item.item,
+                        album=album,
+                        quality=self.get_item_quality(album_item.item),
+                        spec=StreamSpec.predict(self.get_item_quality(album_item.item)),
+                    )
+
+                except AttributeError as exc:
+                    log.error(f"{exc=}")
+                    self.ctx.obj.console.print(
+                        f"[red]Wrong Album Template:[/] {exc} ({template=}, {album.id=}, {album_item.item.id=})"
+                    )
+                    continue
+
+                try:
+                    futures.append(
+                        tracked_item(
+                            item=album_item.item,
+                            file_path=file_path,
+                            track_metadata=TrackMetadata(
+                                cover=cover,
+                                date=str(album.releaseDate),
+                                artist=(
+                                    album.artist.name if album.artist else ""
+                                ),
+                                credits=album_item.credits,
+                                album_review=album_review,
+                            ),
+                        )
+                    )
+                except Exception as e:
+                    report_error(
+                        self.ctx.obj.console, e, info=item_info(album_item.item), raise_errors=self.raise_errors
+                    )
+
+            tracks_with_path = await asyncio.gather(*futures)
+
+            self.save_m3u(
+                resource_type="album",
+                filename=format_template(
+                    CONFIG.m3u.templates.album,
+                    album=album,
+                    type="album",
+                ),
+                tracks_with_path=tracks_with_path,
+            )
+
+            if save_cover and cover:
+                cover.save_to_directory(
+                    path=self.download_path
+                    / format_template(
+                        template=CONFIG.cover.templates.album, album=album
+                    )
+                )
+
+        # resources should be collected from a distinct function
+        # that would yield the resources.
+        # then we would be able to reuse the logic in the export command
+
+        match resource.type:
+
+            case "track":
+                track = self.ctx.obj.api.get_track(resource.id)
+                album = self.ctx.obj.api.get_album(track.album.id)
+
+                cover: Cover | None = None
+                save_cover = ("track" in CONFIG.cover.allowed) and CONFIG.cover.save
+
+                if album.cover and (CONFIG.metadata.cover or save_cover):
+                    cover = Cover(album.cover, size=CONFIG.cover.size)
+
+                await tracked_item(
+                    item=track,
+                    file_path=format_template(
+                        template=self.template or CONFIG.templates.track,
+                        item=track,
+                        album=album,
+                        quality=self.get_item_quality(track),
+                        spec=StreamSpec.predict(self.get_item_quality(track)),
+                    ),
+                    track_metadata=TrackMetadata(
+                        cover=cover,
+                        date=str(album.releaseDate),
+                        artist=album.artist.name if album.artist else "",
+                        # credits are missing
+                    ),
+                )
+
+                if (
+                    CONFIG.cover.save
+                    and ("track" in CONFIG.cover.allowed)
+                    and track.album.cover
+                ):
+                    Cover(
+                        track.album.cover, size=CONFIG.cover.size
+                    ).save_to_directory(
+                        path=self.download_path
+                        / format_template(
+                            CONFIG.cover.templates.track, item=track, album=album
+                        )
+                    )
+
+            case "video":
+                video = self.ctx.obj.api.get_video(resource.id)
+                template = self.template or CONFIG.templates.video
+
+                if (
+                    "{album" in template
+                    and video.album
+                    and video.album.id is not None
+                ):
+                    album = self.ctx.obj.api.get_album(video.album.id)
+                else:
+                    album = None
+
+                await tracked_item(
+                    item=video,
+                    file_path=format_template(
+                        template=template,
+                        item=video,
+                        album=album,
+                        quality=self.get_item_quality(video),
+                    ),
+                )
+
+            case "mix":
+                futures = []
+
+                for mix_item in paginate(
+                    lambda o: self.ctx.obj.api.get_mix_items(resource.id, offset=o)
+                ):
+                    template = self.template or CONFIG.templates.mix
+
+                    try:
+                        if "{album" in template:
+                            album = self.ctx.obj.api.get_album(
+                                mix_item.item.album.id
+                            )
+                        else:
+                            album = None
+
+                        futures.append(
+                            tracked_item(
+                                item=mix_item.item,
+                                file_path=format_template(
+                                    template=template,
+                                    item=mix_item.item,
+                                    album=album,
+                                    mix_id=resource.id,
+                                    quality=self.get_item_quality(mix_item.item),
+                                    spec=StreamSpec.predict(self.get_item_quality(mix_item.item)),
+                                ),
+                            )
+                        )
+                    except Exception as e:
+                        report_error(
+                            self.ctx.obj.console, e, info=item_info(mix_item.item), raise_errors=self.raise_errors
+                        )
+
+                tracks_with_path = await asyncio.gather(*futures)
+
+                self.save_m3u(
+                    resource_type="mix",
+                    filename=format_template(
+                        CONFIG.m3u.templates.mix,
+                        mix_id=resource.id,
+                        type="mix",
+                    ),
+                    tracks_with_path=tracks_with_path,
+                )
+
+            case "album":
+                album = self.ctx.obj.api.get_album(album_id=resource.id)
+                await download_album(album)
+
+            case "artist":
+                futures = []
+
+                async def safe_download_album(album: Album):
+                    try:
+                        await download_album(album)
+                    except Exception as e:
+                        report_error(
+                            self.ctx.obj.console, e, info=item_info(album), raise_errors=self.raise_errors
+                        )
+
+                def get_all_albums(singles: bool):
+                    for album in paginate(
+                        lambda o: self.ctx.obj.api.get_artist_albums(
+                            artist_id=resource.id,
+                            offset=o,
+                            filter="EPSANDSINGLES" if singles else "ALBUMS",
+                        )
+                    ):
+                        futures.append(safe_download_album(album))
+
+                def get_all_videos():
+                    for video in paginate(
+                        lambda o: self.ctx.obj.api.get_artist_videos(
+                            resource.id, offset=o
+                        )
+                    ):
+                        template = self.template or CONFIG.templates.video
+
+                        try:
+                            if "{album" in template and video.album:
+                                album = self.ctx.obj.api.get_album(video.album.id)
+                            else:
+                                album = None
+
+                            futures.append(
+                                tracked_item(
+                                    item=video,
+                                    file_path=format_template(
+                                        template=template,
+                                        item=video,
+                                        album=album,
+                                        quality=self.get_item_quality(video),
+                                    ),
+                                )
+                            )
+                        except Exception as e:
+                            report_error(
+                                self.ctx.obj.console, e, info=item_info(video), raise_errors=self.raise_errors
+                            )
+
+                if self.videos_filter != "none":
+                    get_all_videos()
+
+                if self.videos_filter != "only":
+                    if self.singles_filter == "include":
+                        get_all_albums(False)
+                        get_all_albums(True)
+                    else:
+                        get_all_albums(self.singles_filter == "only")
+
+                await asyncio.gather(*futures)
+
+            case "playlist":
+                futures = []
+                playlist_index = 0
+                playlist = self.ctx.obj.api.get_playlist(playlist_uuid=resource.id)
+
+                for playlist_item in paginate(
+                    lambda o: self.ctx.obj.api.get_playlist_items(
+                        playlist_uuid=resource.id, offset=o
+                    )
+                ):
+                    playlist_index += 1
+                    template = self.template or CONFIG.templates.playlist
+
+                    try:
+                        if "{album" in template:
+                            album = self.ctx.obj.api.get_album(
+                                playlist_item.item.album.id
+                            )
+                        else:
+                            album = None
+
+                        futures.append(
+                            tracked_item(
+                                item=playlist_item.item,
+                                file_path=format_template(
+                                    template=template,
+                                    item=playlist_item.item,
+                                    album=album,
+                                    playlist=playlist,
+                                    playlist_index=playlist_index,
+                                    quality=self.get_item_quality(
+                                        playlist_item.item
+                                    ),
+                                    spec=StreamSpec.predict(
+                                        self.get_item_quality(playlist_item.item)
+                                    ),
+                                ),
+                                track_metadata=TrackMetadata(),
+                            )
+                        )
+                    except Exception as e:
+                        report_error(
+                            self.ctx.obj.console, e, info=item_info(playlist_item.item), raise_errors=self.raise_errors
+                        )
+
+                tracks_with_path = await asyncio.gather(*futures)
+
+                self.save_m3u(
+                    resource_type="playlist",
+                    filename=format_template(
+                        CONFIG.m3u.templates.playlist,
+                        playlist=playlist,
+                        type="playlist",
+                    ),
+                    tracks_with_path=tracks_with_path,
+                )
+
+                if (
+                    CONFIG.cover.save
+                    and ("playlist" in CONFIG.cover.allowed)
+                    and playlist.squareImage
+                ):
+                    Cover(
+                        playlist.squareImage, size=min(CONFIG.cover.size, MAX_COVER_SIZE)
+                    ).save_to_directory(
+                        path=self.download_path
+                        / format_template(
+                            template=CONFIG.cover.templates.playlist,
+                            playlist=playlist,
+                        )
+                    )
 
 
 @download_command.callback(no_args_is_help=True)
@@ -144,633 +760,20 @@ def download_callback(
 
     log.debug(f"{ctx.params=}")
 
-    def write_lrc_file(track: Track, lyrics: str, file_path: Path):
-        if not CONFIG.download.write_lrc_file or not lyrics.strip():
-            return
+    session = DownloadSession(
+        ctx=ctx,
+        track_quality=TRACK_QUALITY,
+        video_quality=VIDEO_QUALITY,
+        skip_existing=SKIP_EXISTING,
+        rewrite_metadata=REWRITE_METADATA,
+        threads_count=THREADS_COUNT,
+        download_path=DOWNLOAD_PATH,
+        scan_path=SCAN_PATH,
+        template=TEMPLATE,
+        singles_filter=SINGLES_FILTER,
+        videos_filter=VIDEOS_FILTER,
+        raise_errors=RAISE_ERRORS,
+        dolby_atmos_filter=DOLBY_ATMOS_FILTER,
+    )
+    ctx.call_on_close(session.run)
 
-        lrc_file_path = file_path.with_suffix(".lrc")
-
-        try:
-            with open(lrc_file_path, "w", encoding="utf-8") as f:
-                f.write(lyrics)
-        except Exception as e:
-            log.error(
-                f"Failed to write LRC file for track {track.title} (ID: {track.id}): {e}"
-            )
-
-    def save_m3u(
-        resource_type: VALID_M3U_RESOURCE_LITERAL,
-        filename: str,
-        tracks_with_path: list[tuple[Path, Track]],
-    ):
-        if not CONFIG.m3u.save:
-            return
-
-        if resource_type not in CONFIG.m3u.allowed:
-            return
-
-        tracks_with_existing_paths = [
-            (path, track)
-            for (path, track) in tracks_with_path
-            if path and isinstance(track, Track)
-        ]
-
-        log.debug(f"{resource_type=}, {filename=}, {len(tracks_with_existing_paths)=}")
-
-        save_tracks_to_m3u(
-            tracks_with_path=tracks_with_existing_paths, path=DOWNLOAD_PATH / filename
-        )
-
-    def get_item_quality(item: Track | Video):
-        def predict_item_quality() -> TRACK_QUALITY_LITERAL | VIDEO_QUALITY_LITERAL:
-            if isinstance(item, Track):
-                if TRACK_QUALITY in ["low", "normal"]:
-                    return TRACK_QUALITY
-
-                if (
-                    TRACK_QUALITY == "max"
-                    and "HIRES_LOSSLESS" not in item.mediaMetadata.tags
-                ):
-                    return "high"
-
-                return TRACK_QUALITY
-
-            elif isinstance(item, Video):
-                # TODO add missing Video.quality literals so this function can work properly
-                return VIDEO_QUALITY
-
-            raise TypeError("Unsupported item type")
-
-        return predict_item_quality().upper()
-
-    async def download_resources():
-        rich_output = RichOutput(ctx.obj.console)
-
-        downloader = Downloader(
-            tidal_api=ctx.obj.api,
-            threads_count=THREADS_COUNT,
-            rich_output=rich_output,
-            track_quality=TRACK_QUALITY,
-            video_quality=VIDEO_QUALITY,
-            videos_filter=VIDEOS_FILTER,
-            skip_existing=not SKIP_EXISTING,
-            download_path=DOWNLOAD_PATH,
-            scan_path=SCAN_PATH,
-            match_existing_path_case=CONFIG.download.match_existing_path_case,
-            dolby_atmos_filter=DOLBY_ATMOS_FILTER,
-        )
-
-        class Metadata:
-            def __init__(
-                self,
-                date: str = "",
-                artist: str = "",
-                credits: list[AlbumItemsCredits.ItemWithCredits.CreditsEntry] = [],
-                cover: Cover | None = None,
-                album_review: str = "",
-            ) -> None:
-                self.date = date
-                self.artist = artist
-                self.credits = credits
-                self.cover = cover
-                self.album_review = album_review
-
-        async def handle_resource(resource: TidalResource):
-            resource_total = 0
-            resource_completed = 0
-
-            async def handle_item(
-                item: Track | Video,
-                file_path: str,
-                track_metadata: Metadata | None = None,
-            ) -> tuple[Path | None, Track | Video]:
-                log.debug(f"{item.id=}, {file_path=}")
-                rich_output.total_increment()
-
-                if not track_metadata:
-                    track_metadata = Metadata()
-
-                download_path, was_downloaded = await downloader.download(
-                    item=item, file_path=Path(file_path)
-                )
-
-                log.debug(f"{download_path=}, {was_downloaded=}")
-
-                if (
-                    CONFIG.metadata.enable
-                    and download_path
-                    # rewrite metadata when track was skipped due to already existing
-                    and (REWRITE_METADATA or was_downloaded)
-                ):
-                    if isinstance(item, Track):
-                        lyrics_subtitles = ""
-
-                        if CONFIG.metadata.lyrics or CONFIG.download.write_lrc_file:
-                            try:
-                                lyrics_subtitles = ctx.obj.api.get_track_lyrics(
-                                    item.id
-                                ).subtitles
-                            except Exception as e:
-                                log.error(e)
-
-                        if (
-                            not track_metadata.cover
-                            and item.album.cover
-                            and CONFIG.metadata.cover
-                        ):
-                            track_metadata.cover = Cover(item.album.cover)
-
-                        if track_metadata.cover and track_metadata.cover.data is None:
-                            track_metadata.cover.fetch_data()
-
-                        write_lrc_file(item, lyrics_subtitles, download_path)
-
-                        add_track_metadata(
-                            path=download_path,
-                            track=item,
-                            lyrics=lyrics_subtitles,
-                            album_artist=track_metadata.artist,
-                            cover_data=(
-                                track_metadata.cover.data
-                                if track_metadata.cover
-                                else None
-                            ),
-                            date=track_metadata.date,
-                            credits_contributors=track_metadata.credits,
-                            comment=track_metadata.album_review,
-                        )
-
-                    elif isinstance(item, Video):
-                        add_video_metadata(path=download_path, video=item)
-
-                if download_path and CONFIG.download.update_mtime:
-                    try:
-                        os.utime(download_path, None)
-                    except Exception:
-                        log.warning(f"could not update mtime for {download_path}")
-
-                return download_path, item
-
-            async def tracked_item(*args, **kwargs):
-                nonlocal resource_total, resource_completed
-                resource_total += 1
-                emit_web_event(
-                    "resource_progress",
-                    completed=resource_completed,
-                    total=resource_total,
-                )
-                try:
-                    return await handle_item(*args, **kwargs)
-                finally:
-                    resource_completed += 1
-                    emit_web_event(
-                        "resource_progress",
-                        completed=resource_completed,
-                        total=resource_total,
-                    )
-
-            async def download_album(album: Album):
-                offset = 0
-                futures = []
-
-                cover: Cover | None = None
-                save_cover = ("album" in CONFIG.cover.allowed) and CONFIG.cover.save
-
-                if album.cover and (CONFIG.metadata.cover or save_cover):
-                    cover = Cover(album.cover, size=CONFIG.cover.size)
-
-                album_review = ""
-
-                if CONFIG.metadata.album_review:
-                    try:
-                        album_review = ctx.obj.api.get_album_review(
-                            album_id=resource.id
-                        ).normalized_text()
-                    except Exception as e:
-                        log.error(e)
-
-                while True:
-                    album_items = ctx.obj.api.get_album_items_credits(
-                        album_id=album.id, offset=offset
-                    )
-
-                    for album_item in album_items.items:
-                        try:
-                            template = TEMPLATE or CONFIG.templates.album
-                            file_path = format_template(
-                                template=template,
-                                item=album_item.item,
-                                album=album,
-                                quality=get_item_quality(album_item.item),
-                            )
-
-                        except AttributeError as exc:
-                            log.error(f"{exc=}")
-                            ctx.obj.console.print(
-                                f"[red]Wrong Album Template:[/] {exc} ({template=}, {album.id=}, {album_item.item.id=})"
-                            )
-                            continue
-
-                        try:
-                            futures.append(
-                                tracked_item(
-                                    item=album_item.item,
-                                    file_path=file_path,
-                                    track_metadata=Metadata(
-                                        cover=cover,
-                                        date=str(album.releaseDate),
-                                        artist=(
-                                            album.artist.name if album.artist else ""
-                                        ),
-                                        credits=album_item.credits,
-                                        album_review=album_review,
-                                    ),
-                                )
-                            )
-                        except ApiError as e:
-                            item = album_item.item
-                            track_info = f"Track: {getattr(item, 'title', 'Unknown')} (ID: {item.id})"
-                            if hasattr(item, "album") and item.album:
-                                track_info += f", Album ID: {item.album.id}"
-                            ctx.obj.console.print(
-                                f"[red]API Error:[/] {e} ({track_info})"
-                            )
-                            if RAISE_ERRORS:
-                                raise
-                        except Exception as e:
-                            item = album_item.item
-                            track_info = f"Track: {getattr(item, 'title', 'Unknown')} (ID: {item.id})"
-                            ctx.obj.console.print(f"[red]Error:[/] {e} ({track_info})")
-                            if RAISE_ERRORS:
-                                raise
-
-                    offset += album_items.limit
-                    if offset >= album_items.totalNumberOfItems:
-                        break
-
-                tracks_with_path = await asyncio.gather(*futures)
-
-                save_m3u(
-                    resource_type="album",
-                    filename=format_template(
-                        CONFIG.m3u.templates.album,
-                        album=album,
-                        type="album",
-                    ),
-                    tracks_with_path=tracks_with_path,
-                )
-
-                if save_cover and cover:
-                    cover.save_to_directory(
-                        path=DOWNLOAD_PATH
-                        / format_template(
-                            template=CONFIG.cover.templates.album, album=album
-                        )
-                    )
-
-            # resources should be collected from a distinct function
-            # that would yield the resources.
-            # then we would be able to reuse the logic in the export command
-
-            match resource.type:
-
-                case "track":
-                    track = ctx.obj.api.get_track(resource.id)
-                    album = ctx.obj.api.get_album(track.album.id)
-
-                    cover: Cover | None = None
-                    save_cover = ("track" in CONFIG.cover.allowed) and CONFIG.cover.save
-
-                    if album.cover and (CONFIG.metadata.cover or save_cover):
-                        cover = Cover(album.cover, size=CONFIG.cover.size)
-
-                    await tracked_item(
-                        item=track,
-                        file_path=format_template(
-                            template=TEMPLATE or CONFIG.templates.track,
-                            item=track,
-                            album=album,
-                            quality=get_item_quality(track),
-                        ),
-                        track_metadata=Metadata(
-                            cover=cover,
-                            date=str(album.releaseDate),
-                            artist=album.artist.name if album.artist else "",
-                            # credits are missing
-                        ),
-                    )
-
-                    if (
-                        CONFIG.cover.save
-                        and ("track" in CONFIG.cover.allowed)
-                        and track.album.cover
-                    ):
-                        Cover(
-                            track.album.cover, size=CONFIG.cover.size
-                        ).save_to_directory(
-                            path=DOWNLOAD_PATH
-                            / format_template(
-                                CONFIG.cover.templates.track, item=track, album=album
-                            )
-                        )
-
-                case "video":
-                    video = ctx.obj.api.get_video(resource.id)
-                    template = TEMPLATE or CONFIG.templates.video
-
-                    if (
-                        "{album" in template
-                        and video.album
-                        and video.album.id is not None
-                    ):
-                        album = ctx.obj.api.get_album(video.album.id)
-                    else:
-                        album = None
-
-                    await tracked_item(
-                        item=video,
-                        file_path=format_template(
-                            template=template,
-                            item=video,
-                            album=album,
-                            quality=get_item_quality(video),
-                        ),
-                    )
-
-                case "mix":
-                    offset = 0
-                    futures = []
-
-                    while True:
-                        mix_items = ctx.obj.api.get_mix_items(resource.id, offset=0)
-
-                        for mix_item in mix_items.items:
-                            template = TEMPLATE or CONFIG.templates.mix
-
-                            try:
-                                if "{album" in template:
-                                    album = ctx.obj.api.get_album(
-                                        mix_item.item.album.id
-                                    )
-                                else:
-                                    album = None
-
-                                futures.append(
-                                    tracked_item(
-                                        item=mix_item.item,
-                                        file_path=format_template(
-                                            template=template,
-                                            item=mix_item.item,
-                                            album=album,
-                                            mix_id=resource.id,
-                                            quality=get_item_quality(mix_item.item),
-                                        ),
-                                    )
-                                )
-                            except ApiError as e:
-                                item = mix_item.item
-                                track_info = f"Track: {getattr(item, 'title', 'Unknown')} (ID: {item.id})"
-                                ctx.obj.console.print(
-                                    f"[red]API Error:[/] {e} ({track_info})"
-                                )
-                                if RAISE_ERRORS:
-                                    raise
-                            except Exception as e:
-                                item = mix_item.item
-                                track_info = f"Track: {getattr(item, 'title', 'Unknown')} (ID: {item.id})"
-                                ctx.obj.console.print(
-                                    f"[red]Error:[/] {e} ({track_info})"
-                                )
-                                if RAISE_ERRORS:
-                                    raise
-
-                        offset += mix_items.limit
-                        if offset >= mix_items.totalNumberOfItems:
-                            break
-
-                    tracks_with_path = await asyncio.gather(*futures)
-
-                    save_m3u(
-                        resource_type="mix",
-                        filename=format_template(
-                            CONFIG.m3u.templates.mix,
-                            mix_id=resource.id,
-                            type="mix",
-                        ),
-                        tracks_with_path=tracks_with_path,
-                    )
-
-                case "album":
-                    album = ctx.obj.api.get_album(album_id=resource.id)
-                    await download_album(album)
-
-                case "artist":
-                    futures = []
-
-                    async def safe_download_album(album: Album):
-                        try:
-                            await download_album(album)
-                        except ApiError as e:
-                            ctx.obj.console.print(
-                                f"[red]API Error:[/] {e} (Album: {album.title}, ID: {album.id})"
-                            )
-                            if RAISE_ERRORS:
-                                raise
-                        except Exception as e:
-                            ctx.obj.console.print(
-                                f"[red]Error:[/] {e} (Album: {album.title}, ID: {album.id})"
-                            )
-                            if RAISE_ERRORS:
-                                raise
-
-                    def get_all_albums(singles: bool):
-                        offset = 0
-
-                        while True:
-                            artist_albums = ctx.obj.api.get_artist_albums(
-                                artist_id=resource.id,
-                                offset=offset,
-                                filter="EPSANDSINGLES" if singles else "ALBUMS",
-                            )
-
-                            for album in artist_albums.items:
-                                futures.append(safe_download_album(album))
-
-                            offset += artist_albums.limit
-                            if offset >= artist_albums.totalNumberOfItems:
-                                break
-
-                    def get_all_videos():
-                        offset = 0
-
-                        while True:
-                            artist_videos = ctx.obj.api.get_artist_videos(
-                                resource.id, offset=offset
-                            )
-
-                            for video in artist_videos.items:
-                                template = TEMPLATE or CONFIG.templates.video
-
-                                try:
-                                    if "{album" in template and video.album:
-                                        album = ctx.obj.api.get_album(video.album.id)
-                                    else:
-                                        album = None
-
-                                    futures.append(
-                                        tracked_item(
-                                            item=video,
-                                            file_path=format_template(
-                                                template=template,
-                                                item=video,
-                                                album=album,
-                                                quality=get_item_quality(video),
-                                            ),
-                                        )
-                                    )
-                                except ApiError as e:
-                                    ctx.obj.console.print(
-                                        f"[red]API Error:[/] {e} (Video: {video.title}, ID: {video.id})"
-                                    )
-                                    if RAISE_ERRORS:
-                                        raise
-                                except Exception as e:
-                                    ctx.obj.console.print(
-                                        f"[red]Error:[/] {e} (Video: {video.title}, ID: {video.id})"
-                                    )
-                                    if RAISE_ERRORS:
-                                        raise
-
-                            if offset > artist_videos.totalNumberOfItems:
-                                break
-
-                            offset += artist_videos.limit
-
-                    if VIDEOS_FILTER != "none":
-                        get_all_videos()
-
-                    if VIDEOS_FILTER != "only":
-                        if SINGLES_FILTER == "include":
-                            get_all_albums(False)
-                            get_all_albums(True)
-                        else:
-                            get_all_albums(SINGLES_FILTER == "only")
-
-                    await asyncio.gather(*futures)
-
-                case "playlist":
-                    offset = 0
-                    futures = []
-                    playlist_index = 0
-                    playlist = ctx.obj.api.get_playlist(playlist_uuid=resource.id)
-
-                    while True:
-                        playlist_items = ctx.obj.api.get_playlist_items(
-                            playlist_uuid=resource.id, offset=offset
-                        )
-
-                        for playlist_item in playlist_items.items:
-                            playlist_index += 1
-                            template = TEMPLATE or CONFIG.templates.playlist
-
-                            try:
-                                if "{album" in template:
-                                    album = ctx.obj.api.get_album(
-                                        playlist_item.item.album.id
-                                    )
-                                else:
-                                    album = None
-
-                                futures.append(
-                                    tracked_item(
-                                        item=playlist_item.item,
-                                        file_path=format_template(
-                                            template=template,
-                                            item=playlist_item.item,
-                                            album=album,
-                                            playlist=playlist,
-                                            playlist_index=playlist_index,
-                                            quality=get_item_quality(
-                                                playlist_item.item
-                                            ),
-                                        ),
-                                        track_metadata=Metadata(),
-                                    )
-                                )
-                            except ApiError as e:
-                                item = playlist_item.item
-                                track_info = f"Track: {getattr(item, 'title', 'Unknown')} (ID: {item.id})"
-                                if hasattr(item, "album") and item.album:
-                                    track_info += f", Album ID: {item.album.id}"
-                                ctx.obj.console.print(
-                                    f"[red]API Error:[/] {e} ({track_info})"
-                                )
-                                if RAISE_ERRORS:
-                                    raise
-                            except Exception as e:
-                                item = playlist_item.item
-                                track_info = f"Track: {getattr(item, 'title', 'Unknown')} (ID: {item.id})"
-                                ctx.obj.console.print(
-                                    f"[red]Error:[/] {e} ({track_info})"
-                                )
-                                if RAISE_ERRORS:
-                                    raise
-
-                        offset += playlist_items.limit
-                        if offset >= playlist_items.totalNumberOfItems:
-                            break
-
-                    tracks_with_path = await asyncio.gather(*futures)
-
-                    save_m3u(
-                        resource_type="playlist",
-                        filename=format_template(
-                            CONFIG.m3u.templates.playlist,
-                            playlist=playlist,
-                            type="playlist",
-                        ),
-                        tracks_with_path=tracks_with_path,
-                    )
-
-                    if (
-                        CONFIG.cover.save
-                        and ("playlist" in CONFIG.cover.allowed)
-                        and playlist.squareImage
-                    ):
-                        Cover(
-                            playlist.squareImage, size=min(CONFIG.cover.size, 1080)
-                        ).save_to_directory(
-                            path=DOWNLOAD_PATH
-                            / format_template(
-                                template=CONFIG.cover.templates.playlist,
-                                playlist=playlist,
-                            )
-                        )
-
-        with Live(
-            rich_output.group,
-            refresh_per_second=10,
-            console=ctx.obj.console,
-            transient=True,
-        ):
-
-            async def wrapper(r: TidalResource):
-                try:
-                    await handle_resource(r)
-                except ApiError as e:
-                    ctx.obj.console.print(f"[red]API Error:[/] {e} ({r})")
-                    if RAISE_ERRORS:
-                        raise
-                except Exception as e:
-                    ctx.obj.console.print(f"[red]Error:[/] {e} ({r})")
-                    if RAISE_ERRORS:
-                        raise
-
-            await asyncio.gather(*(wrapper(r) for r in ctx.obj.resources))
-
-        rich_output.show_stats()
-
-    def run():
-        asyncio.run(download_resources())
-
-    ctx.call_on_close(run)

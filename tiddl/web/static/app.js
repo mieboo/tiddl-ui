@@ -13,18 +13,36 @@ const messages = {
     skipExisting: "Skip existing files",
     defaultVideos: "Download videos by default",
     defaultHighest: "Use highest quality by default",
+    defaultLowest: "Use lowest quality by default (saves data)",
     defaultAtmos: "Enable Atmos by default",
-    startDownload: "Start download",
+    startDownload: "Download to browser",
     activity: "Activity",
     downloadQueue: "Download queue",
     noDownloads: "No downloads yet",
     emptyHint: "Your active and recent tasks will appear here.",
     tidalAccount: "Tidal accounts",
+    tidal: "Tidal",
     connectAccount: "Account group",
     taskDetails: "Task details",
     signIn: "Sign in",
     signedIn: "Signed in",
     signOut: "Sign out",
+    changePassword: "Change password",
+    currentPassword: "Current password",
+    newPassword: "New password",
+    confirmNewPassword: "Confirm new password",
+    passwordsMismatch: "Passwords do not match.",
+    passwordChanged: "Password updated.",
+    onboardingTitle: "Welcome to ATP",
+    onboardingStep1: "Search tracks and albums, or paste a Tidal link to download.",
+    onboardingStep2: "Pick a quality — Hi-Res / FLAC / 320 kbps — and start the download.",
+    onboardingStep3: "Play in the browser with V2 DRM for the best audio quality.",
+    onboardingStart: "Start listening",
+    loginSubtitle: "Sign in to continue",
+    getAccount: "No account? Claim one",
+    username: "Username",
+    password: "Password",
+    invalidCredentials: "Invalid username or password.",
     localServer: "Local server",
     ffmpegReady: "ffmpeg ready",
     ffmpegMissing: "ffmpeg missing",
@@ -33,6 +51,8 @@ const messages = {
     folder: "Folder",
     activeTasks: "Active",
     python: "Python",
+    quota: "Download quota",
+    quotaLeft: "left",
     loadingPreview: "Loading resource information...",
     item: "item",
     items: "items",
@@ -43,6 +63,8 @@ const messages = {
     noOutput: "No output yet.",
     taskAdded: "{count} task added to the download queue.",
     tasksAdded: "{count} tasks added to the download queue.",
+    downloadToBrowserDone: "Download complete, saving to this device…",
+    browserDownloadStarted: "Downloading to this device…",
     requestFailed: "Request failed",
     connected: "Your Tidal account is connected{country}.",
     approveAccess: "Open Tidal to approve access. This page will update when authentication finishes.",
@@ -50,7 +72,7 @@ const messages = {
     loginFailed: "Sign in could not be started. Open the task log for details.",
     preparingLogin: "Preparing a secure Tidal sign-in link...",
     switchTheme: "Switch color theme",
-    downloads: "Downloads",
+    downloads: "Downloader",
     player: "Player",
     refreshTasks: "Refresh tasks",
     statusQueued: "Queued",
@@ -83,10 +105,6 @@ const messages = {
     healthDegraded: "Unstable",
     healthUnhealthy: "Isolated",
     healthChecked: "checked {time}",
-    qrTitle: "Use on your phone",
-    qrHint: "Keep your phone on the same network, then scan the code or open a URL below.",
-    qrBindWarning: "The server currently listens on 127.0.0.1 only. Start it with TIDDL_HOST=0.0.0.0 so your phone can connect.",
-    qrNoAddress: "No LAN address detected.",
   },
   zh: {
     resourceLabel: "搜索 Tidal 或添加链接",
@@ -98,18 +116,32 @@ const messages = {
     skipExisting: "跳过已有文件",
     defaultVideos: "默认下载视频",
     defaultHighest: "默认下载最高规格",
+    defaultLowest: "默认下载最低规格（省流量）",
     defaultAtmos: "默认启用 Atmos",
-    startDownload: "开始下载",
+    startDownload: "下载到浏览器",
     activity: "任务",
     downloadQueue: "下载队列",
     noDownloads: "暂无下载任务",
     emptyHint: "正在运行和最近的任务会显示在这里。",
     tidalAccount: "Tidal 账户",
+    tidal: "Tidal",
     connectAccount: "账户组",
     taskDetails: "任务详情",
     signIn: "登录",
     signedIn: "已登录",
     signOut: "退出登录",
+    changePassword: "修改密码",
+    currentPassword: "当前密码",
+    newPassword: "新密码",
+    confirmNewPassword: "确认新密码",
+    passwordsMismatch: "两次输入的密码不一致。",
+    passwordChanged: "密码已更新。",
+    onboardingTitle: "欢迎使用 ATP",
+    onboardingStep1: "搜索歌曲和专辑，或粘贴 Tidal 链接进行下载。",
+    onboardingStep2: "选择音质 —— Hi-Res / FLAC / 320 kbps，然后开始下载。",
+    onboardingStep3: "在浏览器中通过 V2 DRM 播放，享受最佳音质。",
+    onboardingStart: "开始使用",
+    getAccount: "没有账号？领取一个",
     localServer: "本地服务",
     ffmpegReady: "ffmpeg 就绪",
     ffmpegMissing: "缺少 ffmpeg",
@@ -118,6 +150,8 @@ const messages = {
     folder: "目录",
     activeTasks: "运行任务",
     python: "Python",
+    quota: "下载额度",
+    quotaLeft: "剩余",
     loadingPreview: "正在读取资源信息...",
     item: "项",
     items: "项",
@@ -128,6 +162,8 @@ const messages = {
     noOutput: "暂无输出。",
     taskAdded: "已将 {count} 个任务加入下载队列。",
     tasksAdded: "已将 {count} 个任务加入下载队列。",
+    downloadToBrowserDone: "下载完成，正在保存到本机…",
+    browserDownloadStarted: "正在下载到本机…",
     requestFailed: "请求失败",
     connected: "Tidal 账户已连接{country}。",
     approveAccess: "请前往 Tidal 授权。认证完成后此页面会自动更新。",
@@ -135,7 +171,7 @@ const messages = {
     loginFailed: "无法启动登录，请打开任务日志查看详情。",
     preparingLogin: "正在准备 Tidal 登录链接...",
     switchTheme: "切换颜色主题",
-    downloads: "下载",
+    downloads: "下载器",
     player: "播放器",
     refreshTasks: "刷新任务",
     statusQueued: "排队中",
@@ -168,22 +204,18 @@ const messages = {
     healthDegraded: "不稳定",
     healthUnhealthy: "已隔离",
     healthChecked: "{time} 检查",
-    qrTitle: "在手机上使用",
-    qrHint: "确保手机与电脑在同一局域网，扫码或访问下方地址。",
-    qrBindWarning: "当前服务仅监听本机（127.0.0.1）。请以 TIDDL_HOST=0.0.0.0 启动，手机才能访问。",
-    qrNoAddress: "未检测到局域网地址。",
   },
 };
 
 const optionLabels = {
   en: {
-    low: "Low · 96 kbps", normal: "Normal · 320 kbps", high: "High · FLAC", max: "Max · Hi-Res",
+    low: "Low · 96 kbps", normal: "Normal · 320 kbps", high: "High · FLAC 44.1kHz", high_atmos: "High · FLAC 44.1kHz · Atmos",
     sd: "SD · 360p", hd: "HD · 720p", fhd: "FHD · 1080p",
     none_videos: "Audio only", allow_videos: "Audio + video", only_videos: "Video only",
     none_atmos: "Stereo", allow_atmos: "Atmos allowed", only_atmos: "Atmos only",
   },
   zh: {
-    low: "低 · 96 kbps", normal: "标准 · 320 kbps", high: "高 · FLAC", max: "最高 · Hi-Res",
+    low: "低 · 96 kbps", normal: "标准 · 320 kbps", high: "高 · FLAC 44.1kHz", high_atmos: "高 · FLAC 44.1kHz · Atmos",
     sd: "标清 · 360p", hd: "高清 · 720p", fhd: "全高清 · 1080p",
     none_videos: "仅音频", allow_videos: "音频和视频", only_videos: "仅视频",
     none_atmos: "立体声", allow_atmos: "允许 Atmos", only_atmos: "仅 Atmos",
@@ -193,7 +225,10 @@ const optionLabels = {
 const state = {
   status: null,
   jobs: [],
+  jobFingerprints: {},
   accounts: [],
+  // 绿色"下载到浏览器"按钮提交的任务 id:完成后自动打包推送回浏览器
+  pendingBrowserDownloads: new Set(),
   previews: [],
   previewUrls: [],
   authJobId: null,
@@ -209,7 +244,7 @@ const state = {
   defaults: {
     videos: localStorage.getItem("tiddl-default-videos") === "true",
     highest: localStorage.getItem("tiddl-default-highest") === "true",
-    atmos: localStorage.getItem("tiddl-default-atmos") === "true",
+    lowest: localStorage.getItem("tiddl-default-lowest") === "true",
   },
 };
 
@@ -219,6 +254,8 @@ function t(key, vars = {}) {
   return value;
 }
 
+const noImages = () => localStorage.getItem("tiddl-player-no-images") === "true";
+const imgSrc = (url) => (noImages() ? "" : (url || ""));
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 }
@@ -237,22 +274,36 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 ** index)).toFixed(index ? 1 : 0)} ${units[index]}`;
 }
 
+// 惰性缓存已渲染的 SVG 图标:首次用到某个图标时才 lucide 渲染一次,之后直接复用,
+// 避免频繁的图标切换/高频重渲染每次都触发 lucide 全文档扫描
+const iconSvgCache = {};
+function iconSvg(name) {
+  if (iconSvgCache[name]) return iconSvgCache[name];
+  const host = document.createElement("div");
+  host.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
+  host.innerHTML = `<i data-lucide="${name}"></i>`;
+  document.body.appendChild(host);
+  lucide.createIcons();
+  iconSvgCache[name] = host.children[0].outerHTML;
+  host.remove();
+  return iconSvgCache[name];
+}
+
 function optionLabel(key, value) {
-  const scoped = key === "videos" || key === "atmos" ? `${value}_${key}` : value;
+  const scoped = key === "videos" ? `${value}_${key}` : value;
   return optionLabels[state.lang][scoped] || value;
 }
 
 function compactOptionLabel(key, value, label) {
-  if (key === "track_quality") return { low: "96 kbps", normal: "320 kbps", high: "44.1 kHz", max: "96-192 kHz" }[value] || label;
+  if (key === "track_quality") return { low: "96 kbps", normal: "320 kbps", high: "44.1 kHz 无损", high_atmos: "44.1 kHz · Atmos" }[value] || label;
   if (key === "video_quality") return { sd: "360p", hd: "720p", fhd: "1080p" }[value] || label;
   return label;
 }
 
 function specToneClass(key, value) {
   const tones = {
-    track_quality: { low: "white", normal: "green", high: "gold", max: "magenta" },
+    track_quality: { low: "white", normal: "green", high: "gold", high_atmos: "crimson" },
     video_quality: { sd: "white", hd: "green", fhd: "gold" },
-    atmos: { none: "green", allow: "gold", only: "crimson" },
   };
   return `spec-tone-${tones[key]?.[value] || "default"}`;
 }
@@ -270,25 +321,23 @@ function iconName(job) {
 function renderSystemFacts() {
   if (!state.status) return;
   const active = state.jobs.filter((job) => ["queued", "running"].includes(job.status)).length;
+  const quotaLimit = state.status.quota_limit || 0;
+  const quotaUsed = state.status.quota_used || 0;
+  const quotaPct = quotaLimit > 0 ? Math.min(100, Math.round((quotaUsed / quotaLimit) * 100)) : 0;
   $("#systemFacts").innerHTML = `
-    <span class="fact ok"><i data-lucide="radio"></i><strong>${t("localServer")}</strong></span>
-    <span class="fact"><i data-lucide="package"></i><strong>ATP ${escapeHtml(state.status.version)}</strong></span>
-    <span class="fact"><i data-lucide="code-2"></i>${t("python")} <strong>${escapeHtml(state.status.python_version)}</strong></span>
-    <span class="fact ${state.status.ffmpeg ? "ok" : "warn"}"><i data-lucide="${state.status.ffmpeg ? "circle-check" : "triangle-alert"}"></i><strong>${state.status.ffmpeg ? t("ffmpegReady") : t("ffmpegMissing")}</strong></span>
-    <span class="fact ${state.status.authenticated ? "ok" : "warn"}"><i data-lucide="user-round"></i>${t("account")} <strong>${state.status.authenticated ? `${t("signedIn")}${state.status.country_code ? ` · ${escapeHtml(state.status.country_code)}` : ""}` : t("signIn")}</strong></span>
-    <span class="fact"><i data-lucide="hard-drive"></i>${t("storage")} <strong>${formatBytes(state.status.disk_free)}</strong></span>
-    <span class="fact"><i data-lucide="activity"></i>${t("activeTasks")} <strong>${active}</strong></span>
-    <span class="fact path-fact" title="${escapeHtml(state.status.download_path)}"><i data-lucide="folder"></i>${t("folder")} <strong>${escapeHtml(state.status.download_path)}</strong></span>`;
-  lucide.createIcons();
+    <span class="fact quota-fact" title="${t("quota")}">
+      <span class="quota-head">${iconSvg("gauge")}<strong>${t("quota")}</strong><em>${formatBytes(quotaUsed)} / ${formatBytes(quotaLimit)}</em></span>
+    </span>
+    <span class="fact ${state.status.tidal_ready ? "ok" : "warn"}">${iconSvg("radio")}<strong>${t("tidal")} · ${state.status.tidal_ready ? t("signedIn") : t("signIn")}</strong></span>
+    <span class="fact">${iconSvg("hard-drive")}${t("storage")} <strong>${formatBytes(state.status.disk_free)}</strong></span>
+    <span class="fact">${iconSvg("activity")}${t("activeTasks")} <strong>${active}</strong></span>
+    <span class="fact path-fact" title="${escapeHtml(state.status.download_path)}">${iconSvg("folder")}${t("folder")} <strong>${escapeHtml(state.status.download_path)}</strong></span>`;
 }
 
-function renderJobs() {
-  const list = $("#jobList");
-  $("#emptyState").hidden = state.jobs.length > 0;
-  list.innerHTML = state.jobs.map((job) => `
-    <article class="job">
+function jobCardHtml(job) {
+  return `<article class="job" data-job-id="${job.id}">
       <div class="job-top">
-        ${job.cover ? `<img class="job-cover" src="${escapeHtml(job.cover)}" alt="">` : `<span class="job-icon"><i data-lucide="${iconName(job)}"></i></span>`}
+        ${imgSrc(job.cover) ? `<img class="job-cover" src="${escapeHtml(imgSrc(job.cover))}" alt="">` : `<span class="job-icon">${iconSvg(iconName(job))}</span>`}
         <div class="job-copy"><strong title="${escapeHtml(job.label)}">${escapeHtml(job.label)}</strong>${job.subtitle ? `<span class="job-subtitle" title="${escapeHtml(job.subtitle)}">${escapeHtml(job.subtitle)}</span>` : ""}<span class="job-meta">${statusLabel(job.status)}${job.account_id ? ` · ${escapeHtml(job.account_id === "default" ? "Default" : job.account_id.slice(-4))}` : ""}</span></div>
         <span class="job-status ${job.status}"></span>
       </div>
@@ -303,9 +352,38 @@ function renderJobs() {
           <div class="progress-meta"><span>${formatBytes(job.downloaded)}${job.total ? ` / ${formatBytes(job.total)}` : ""}</span><span>${Math.round((job.progress || 0) * 100)}%</span></div>
         </div>` : ""}
       <div class="job-actions"><button type="button" data-log="${job.id}">${t("viewLog")}</button>${["queued", "running"].includes(job.status) ? `<button type="button" data-cancel="${job.id}">${t("cancel")}</button>` : ""}</div>
-    </article>`).join("");
+    </article>`;
+}
+
+function jobFingerprint(job) {
+  // 影响卡片渲染的字段:任何一项变化才重渲该卡片
+  return [job.status, job.kind, job.label, job.subtitle, job.cover, job.account_id,
+    job.progress, job.downloaded, job.total, job.speed, job.current_item,
+    job.resource_completed, job.resource_total, (job.downloaded_files || []).length].join("|");
+}
+
+function renderJobs() {
+  const list = $("#jobList");
+  $("#emptyState").hidden = state.jobs.length > 0;
+  const alive = new Set();
+  // 只重建状态变化的卡片;新增/删除做增删,不变的原样保留(不重扫 lucide)
+  for (const job of state.jobs) {
+    alive.add(job.id);
+    const fp = jobFingerprint(job);
+    if (state.jobFingerprints[job.id] === fp) continue;
+    state.jobFingerprints[job.id] = fp;
+    const existing = list.querySelector(`[data-job-id="${job.id}"]`);
+    const html = jobCardHtml(job);
+    if (existing) existing.outerHTML = html;
+    else list.insertAdjacentHTML("beforeend", html);
+  }
+  list.querySelectorAll("[data-job-id]").forEach((el) => {
+    if (!alive.has(el.dataset.jobId)) {
+      el.remove();
+      delete state.jobFingerprints[el.dataset.jobId];
+    }
+  });
   renderSystemFacts();
-  lucide.createIcons();
 }
 
 function specControl(resource, resourceIndex, spec) {
@@ -325,11 +403,9 @@ function specControl(resource, resourceIndex, spec) {
 }
 
 function visibleSpecs(resource) {
-  const hasAudio = resource.specs.some((spec) => spec.key === "track_quality" && spec.choices.length);
   return resource.specs.filter((spec) =>
     spec.choices.length > 0
     && (spec.key !== "videos" || spec.choices.length > 1)
-    && (spec.key !== "atmos" || hasAudio)
   );
 }
 
@@ -338,7 +414,7 @@ function renderPreview(resources, openIndexes = new Set()) {
   panel.innerHTML = resources.map((resource, resourceIndex) => `
     <details class="preview-resource" data-resource-index="${resourceIndex}" ${openIndexes.has(resourceIndex) ? "open" : ""}>
       <summary class="preview-head">
-        ${resource.cover ? `<img class="preview-cover" src="${escapeHtml(resource.cover)}" alt="">` : `<span class="preview-cover preview-cover-placeholder"><i data-lucide="music"></i></span>`}
+        ${imgSrc(resource.cover) ? `<img class="preview-cover" src="${escapeHtml(imgSrc(resource.cover))}" alt="">` : `<span class="preview-cover preview-cover-placeholder"><i data-lucide="music"></i></span>`}
         <div class="preview-title"><strong>${escapeHtml(resource.title)}</strong><span>${escapeHtml(resource.subtitle || resource.type)}</span></div>
         <div class="preview-specs">${visibleSpecs(resource).map((spec) => specControl(resource, resourceIndex, spec)).join("")}</div>
         <span class="preview-count">${resource.items.length} ${t(resource.items.length === 1 ? "item" : "items")}</span>
@@ -371,7 +447,7 @@ function renderSearchResults(results) {
   panel.innerHTML = results.length ? results.map((result) => {
     const added = state.previews.some((resource) => resource.resource === result.resource);
     return `<button class="search-result${added ? " added" : ""}" type="button" data-search-resource="${escapeHtml(result.resource)}" ${added ? "disabled" : ""}>
-      ${result.cover ? `<img class="search-result-cover" src="${escapeHtml(result.cover)}" alt="">` : `<span class="search-result-cover preview-cover-placeholder"><i data-lucide="${result.type === "album" ? "disc-3" : "music"}"></i></span>`}
+      ${imgSrc(result.cover) ? `<img class="search-result-cover" src="${escapeHtml(imgSrc(result.cover))}" alt="">` : `<span class="search-result-cover preview-cover-placeholder"><i data-lucide="${result.type === "album" ? "disc-3" : "music"}"></i></span>`}
       <span class="search-result-copy"><strong>${escapeHtml(result.title)}${result.explicit ? `<span class="explicit-mark">E</span>` : ""}</strong><span>${escapeHtml(result.subtitle || result.type)}</span></span>
       <span class="search-result-type">${added ? t("added") : t(result.type)}</span>
     </button>`;
@@ -416,7 +492,7 @@ function scheduleInputAction() {
 function applyPreviewDefaults(resources) {
   const includeVideos = $("#defaultVideos").checked;
   const highest = $("#defaultHighest").checked;
-  const enableAtmos = $("#defaultAtmos").checked;
+  const lowest = $("#defaultLowest").checked;
   for (const resource of resources) {
     if (!resource.detected_options) resource.detected_options = { ...resource.download_options };
     resource.download_options = { ...resource.detected_options };
@@ -426,19 +502,28 @@ function applyPreviewDefaults(resources) {
         const choices = specs[key]?.choices || [];
         if (choices.length) resource.download_options[key] = choices.at(-1);
       }
+    } else if (lowest) {
+      const choices = specs.track_quality?.choices || [];
+      if (choices.length) resource.download_options.track_quality = choices[0];
     }
     const videoChoices = specs.videos?.choices || [];
     if (videoChoices.includes("allow")) resource.download_options.videos = includeVideos ? "allow" : "none";
-    resource.download_options.atmos = enableAtmos && specs.atmos?.choices.includes("allow") ? "allow" : "none";
     for (const spec of resource.specs) spec.value = resource.download_options[spec.key];
   }
 }
 
 function updatePreviewDefaults() {
+  const highest = $("#defaultHighest").checked;
+  const lowest = $("#defaultLowest").checked;
+  // 最高/最低音质互斥:勾选一个时自动取消另一个
+  if (highest && lowest) {
+    if (document.activeElement === $("#defaultLowest")) $("#defaultHighest").checked = false;
+    else $("#defaultLowest").checked = false;
+  }
   state.defaults = {
     videos: $("#defaultVideos").checked,
     highest: $("#defaultHighest").checked,
-    atmos: $("#defaultAtmos").checked,
+    lowest: $("#defaultLowest").checked,
   };
   for (const [key, value] of Object.entries(state.defaults)) localStorage.setItem(`tiddl-default-${key}`, value);
   if (state.previews.length) {
@@ -486,10 +571,117 @@ async function refreshStatus() {
 }
 
 function renderAuthButton() {
-  const count = state.accounts.length;
-  $("#authButton").innerHTML = `<i data-lucide="${count ? "users" : "log-in"}"></i><span>${count ? t(count === 1 ? "oneAccount" : "accounts", { count }) : t("signIn")}</span>`;
+  const me = window.ATPAuth && window.ATPAuth.user;
+  if (!me) {
+    $("#authButton").innerHTML = iconSvg("log-in");
+    $("#authButton").title = t("signIn");
+    $("#authButton").onclick = () => { if (window.ATPAuth) window.ATPAuth.login("", "").catch(() => {}); };
+    $("#userMenuName").textContent = "";
+    $("#userMenuPanel [data-user-action=accounts]").hidden = true;
+    return;
+  }
+  $("#authButton").innerHTML = iconSvg(me.is_admin ? "shield-check" : "user-round");
+  $("#authButton").title = me.username + (me.is_admin ? " · admin" : "");
+  $("#userMenuName").textContent = me.username + (me.is_admin ? " · admin" : "");
+  $("#userMenuPanel [data-user-action=accounts]").hidden = !me.is_admin;
+  // 点击按钮切换下拉菜单;菜单项用事件委托处理
+  $("#authButton").onclick = (event) => {
+    event.stopPropagation();
+    const panel = $("#userMenuPanel");
+    panel.hidden = !panel.hidden;
+    $("#authButton").setAttribute("aria-expanded", String(!panel.hidden));
+  };
   lucide.createIcons();
 }
+
+// 用户菜单项:账号池(管理员)/改密码/登出
+$("#userMenuPanel").addEventListener("click", async (event) => {
+  const item = event.target.closest("[data-user-action]");
+  if (!item) return;
+  $("#userMenuPanel").hidden = true;
+  $("#authButton").setAttribute("aria-expanded", "false");
+  if (item.dataset.userAction === "accounts") { await openAuth(); return; }
+  if (item.dataset.userAction === "password") { openPasswordDialog(); return; }
+  if (item.dataset.userAction === "logout") {
+    if (window.ATPAuth) await window.ATPAuth.logout();
+    renderAuthButton();
+    refreshAll();
+  }
+});
+// 点击页面其它位置关闭用户菜单
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#userMenu")) {
+    const panel = $("#userMenuPanel");
+    if (panel && !panel.hidden) {
+      panel.hidden = true;
+      $("#authButton").setAttribute("aria-expanded", "false");
+    }
+  }
+});
+
+// ---- 修改密码 ----
+function openPasswordDialog() {
+  $("#pwError").hidden = true;
+  $("#pwCurrent").value = "";
+  $("#pwNew").value = "";
+  $("#pwConfirm").value = "";
+  $("#passwordDialog").showModal();
+}
+$("#passwordForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const current = $("#pwCurrent").value;
+  const next = $("#pwNew").value;
+  const confirm = $("#pwConfirm").value;
+  const errorEl = $("#pwError");
+  errorEl.hidden = true;
+  if (next !== confirm) {
+    errorEl.textContent = t("passwordsMismatch");
+    errorEl.hidden = false;
+    return;
+  }
+  const submitBtn = $("#passwordForm button[type=submit]");
+  submitBtn.disabled = true;
+  try {
+    await api("/api/user/password", {
+      method: "POST",
+      body: JSON.stringify({ current_password: current, new_password: next }),
+    });
+    $("#passwordDialog").close();
+    showAppToast(t("passwordChanged"));
+  } catch (error) {
+    errorEl.textContent = error.message || t("requestFailed");
+    errorEl.hidden = false;
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+$("[data-close-password]").addEventListener("click", () => $("#passwordDialog").close());
+$("#passwordDialog").addEventListener("click", (event) => {
+  if (event.target === $("#passwordDialog")) $("#passwordDialog").close();
+});
+
+function showAppToast(message) {
+  const toastEl = $("#toast");
+  toastEl.textContent = message;
+  toastEl.classList.add("show");
+  clearTimeout(window.__appToastTimer);
+  window.__appToastTimer = setTimeout(() => toastEl.classList.remove("show"), 2400);
+}
+
+// ---- 首次登录操作指引覆盖层 ----
+function maybeShowOnboarding() {
+  const me = window.ATPAuth && window.ATPAuth.user;
+  if (!me) return;
+  // 每个用户只看一次,记住在 localStorage
+  const key = `tiddl-onboarding-${me.username}`;
+  if (localStorage.getItem(key)) return;
+  $("#onboardingOverlay").hidden = false;
+}
+$("#onboardingDone").addEventListener("click", () => {
+  const me = window.ATPAuth && window.ATPAuth.user;
+  if (me) localStorage.setItem(`tiddl-onboarding-${me.username}`, "1");
+  $("#onboardingOverlay").hidden = true;
+});
 
 function healthLabel(status) {
   return t(`health${status.charAt(0).toUpperCase()}${status.slice(1)}`);
@@ -502,14 +694,45 @@ function healthCheckedLabel(value) {
 }
 
 async function refreshJobs() {
+  // 仅在下载器视图(/downloads)轮询任务列表;播放器视图跳过,避免后台狂刷 /api/jobs。
+  if (document.body.dataset.route !== "downloads") return;
+  if (!(window.ATPAuth && window.ATPAuth.user)) { state.jobs = []; renderJobs(); return; }
   state.jobs = await api("/api/jobs");
+  // 绿色"下载到浏览器"自动投递:任务完成且有文件时,把打包好的文件推回浏览器本地
+  if (state.pendingBrowserDownloads.size) {
+    for (const id of [...state.pendingBrowserDownloads]) {
+      const job = state.jobs.find((item) => item.id === id);
+      if (!job) continue;
+      if (job.status === "completed" && (job.downloaded_files || []).length) {
+        state.pendingBrowserDownloads.delete(id);
+        const link = document.createElement("a");
+        link.href = `/api/jobs/${id}/download`;
+        link.download = "";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showToast(t("downloadToBrowserDone"));
+      } else if (job.status === "failed" || job.status === "cancelled") {
+        state.pendingBrowserDownloads.delete(id);
+      }
+    }
+  }
+  // 暴露下载器总网速给 SPA 壳(播放器 topbar 汇总显示)
+  window.ATPDownloads = {
+    speed: state.jobs.reduce((sum, job) => sum + (job.status === "running" && job.kind === "download" ? Number(job.speed) || 0 : 0), 0),
+  };
   renderJobs();
   if (state.authJobId) updateAuthDialog();
 }
 
 async function refreshAccounts() {
-  const data = await api("/api/accounts");
-  state.accounts = data.accounts;
+  // Tidal 账号池仅管理员可见;普通用户/未登录拿到 401/403 时静默忽略
+  try {
+    const data = await api("/api/accounts");
+    state.accounts = data.accounts;
+  } catch (_) {
+    state.accounts = [];
+  }
   renderAuthButton();
   if ($("#authDialog").open && !state.authJobId) renderAccountGroup();
 }
@@ -563,36 +786,57 @@ async function submitDownload(event) {
     if (pendingInput && await previewResources() === null) throw new Error(message.textContent);
     const urls = [...state.previewUrls];
     if (!urls.length) throw new Error(t("resourceLabel"));
-    const result = await api("/api/downloads", { method: "POST", body: JSON.stringify({ urls, resource_options: state.previews.map((resource) => resource.download_options), resource_metadata: state.previews.map((resource) => ({ title: resource.title, subtitle: resource.subtitle || "", cover: resource.cover, type: resource.type, singles: Boolean(resource.singles) })), threads: Number($("#threads").value), skip_existing: $("#skipExisting").checked, download_path: $("#downloadPath").value, output_template: $("#outputTemplate").value }) });
+    // 浏览器直连下载:逐曲触发 /api/download/browser/{track_id}(服务器只转发字节,不落盘)
+    // 音质与 Atmos 已整合:track_quality 可能为 "high_atmos"(复合档),拆分回 quality + atmos
+    const tracks = [];
+    for (const res of state.previews) {
+      let q = (res.download_options && res.download_options.track_quality) || "high";
+      let atmos = "none";
+      if (q.endsWith("_atmos")) { q = q.replace("_atmos", ""); atmos = "allow"; }
+      for (const item of (res.items || [])) {
+        if (item.type === "track" && item.id) tracks.push({ id: item.id, quality: q, atmos });
+      }
+    }
+    if (window.ATPTrace) window.ATPTrace("download.request", {
+      urls: urls.length, tracks: tracks.length,
+      options: state.previews.map((r) => r.download_options),
+    });
     $("#urls").value = "";
     state.previews = [];
     state.previewUrls = [];
     $("#previewPanel").hidden = true;
+    // 逐个触发浏览器下载(专辑=逐曲保存);DRM/Atmos 被拒/失败曲目回退服务器任务
+    const failed = [];
+    for (const t of tracks) {
+      try {
+        const resp = await fetch(`/api/download/browser/${t.id}?quality=${encodeURIComponent(t.quality)}&atmos=${encodeURIComponent(t.atmos)}`);
+        if (!resp.ok) { failed.push(t); continue; }
+        const blob = await resp.blob();
+        const cd = resp.headers.get("Content-Disposition") || "";
+        const match = cd.match(/filename="([^"]+)"/);
+        const name = match ? match[1] : `track-${t.id}.m4a`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        await new Promise((r) => setTimeout(r, 300));
+      } catch (_) { failed.push(t); }
+    }
+    if (failed.length) {
+      const result = await api("/api/downloads", { method: "POST", body: JSON.stringify({ urls: failed.map((t) => `track/${t.id}`), resource_options: [], resource_metadata: [], threads: Number($("#threads").value), skip_existing: $("#skipExisting").checked, download_path: $("#downloadPath").value, output_template: $("#outputTemplate").value }) });
+      for (const job of result.jobs || []) state.pendingBrowserDownloads.add(job.id);
+    }
     message.classList.add("success");
-    message.textContent = t(result.count === 1 ? "taskAdded" : "tasksAdded", { count: result.count });
+    message.textContent = t(tracks.length ? "browserDownloadStarted" : "resourceLabel");
     await refreshJobs();
   } catch (error) {
     message.classList.remove("success");
     message.textContent = error.message;
   } finally { button.disabled = false; }
-}
-
-function openQrDialog() {
-  const dialog = $("#qrDialog");
-  const status = state.status || {};
-  const urls = status.lan_urls || [];
-  $("#qrBindWarning").hidden = status.host !== "127.0.0.1";
-  $("#qrUrls").innerHTML = urls.length
-    ? urls.map((url) => `<li><a href="${escapeHtml(url)}" target="_blank" rel="noopener"><code>${escapeHtml(url)}</code></a></li>`).join("")
-    : `<li><span class="qr-muted">${escapeHtml(t("qrNoAddress"))}</span></li>`;
-  const canvas = $("#qrCanvas");
-  if (urls.length && window.QRCode) {
-    QRCode.toCanvas(canvas, urls[0], { width: 180, margin: 1, color: { dark: "#0b0c0e", light: "#ffffff" } }, (error) => { canvas.hidden = Boolean(error); });
-  } else {
-    canvas.hidden = true;
-  }
-  dialog.showModal();
-  lucide.createIcons();
 }
 
 function openLog(jobId) {
@@ -616,8 +860,6 @@ function applyLocale() {
   $("#themeButton").setAttribute("aria-label", t("switchTheme"));
   $("#refreshButton").title = t("refreshTasks");
   $("#refreshButton").setAttribute("aria-label", t("refreshTasks"));
-  $("#qrButton").title = t("qrTitle");
-  $("#qrButton").setAttribute("aria-label", t("qrTitle"));
   $("#urls").placeholder = t("searchPlaceholder");
   $("#advancedButton").title = t("advanced");
   $("#advancedButton").setAttribute("aria-label", t("advanced"));
@@ -647,14 +889,14 @@ function applyTheme() {
 
 async function refreshAll() {
   try { await Promise.all([refreshStatus(), refreshJobs(), refreshAccounts()]); }
-  catch { $("#systemFacts").innerHTML = `<span class="fact warn"><i data-lucide="cloud-off"></i><strong>${t("requestFailed")}</strong></span>`; lucide.createIcons(); }
+  catch (error) {
+    console.error("Failed to refresh dashboard:", error);
+    $("#systemFacts").innerHTML = `<span class="fact warn"><i data-lucide="cloud-off"></i><strong>${t("requestFailed")}</strong></span>`; lucide.createIcons();
+  }
 }
 
 $("#downloadForm").addEventListener("submit", submitDownload);
 $("#urls").addEventListener("input", scheduleInputAction);
-$("#qrButton").addEventListener("click", openQrDialog);
-$("[data-close-qr]").addEventListener("click", () => $("#qrDialog").close());
-$("#authButton").addEventListener("click", openAuth);
 $("#advancedButton").addEventListener("click", () => $("#advancedDialog").showModal());
 $("#refreshButton").addEventListener("click", refreshAll);
 $("#languageSelect").addEventListener("change", (event) => { state.lang = event.target.value; localStorage.setItem("tiddl-language", state.lang); applyLocale(); });
@@ -676,8 +918,13 @@ $("#authContent").addEventListener("change", async (event) => {
   await api(`/api/accounts/${toggle.dataset.accountToggle}?enabled=${toggle.checked}`, { method: "PATCH" });
   await refreshAll();
 });
-["defaultVideos", "defaultHighest", "defaultAtmos"].forEach((id) => $(`#${id}`).addEventListener("change", updatePreviewDefaults));
-$("#jobList").addEventListener("click", (event) => { const log = event.target.closest("[data-log]"); const cancel = event.target.closest("[data-cancel]"); if (log) openLog(log.dataset.log); if (cancel) cancelJob(cancel.dataset.cancel); });
+["defaultVideos", "defaultHighest", "defaultLowest"].forEach((id) => $(`#${id}`).addEventListener("change", updatePreviewDefaults));
+$("#jobList").addEventListener("click", (event) => {
+  const log = event.target.closest("[data-log]");
+  const cancel = event.target.closest("[data-cancel]");
+  if (log) openLog(log.dataset.log);
+  if (cancel) cancelJob(cancel.dataset.cancel);
+});
 $("#searchResults").addEventListener("click", async (event) => {
   const result = event.target.closest("[data-search-resource]");
   if (!result || result.disabled) return;
@@ -724,11 +971,30 @@ document.addEventListener("click", (event) => {
 
 $("#defaultVideos").checked = state.defaults.videos;
 $("#defaultHighest").checked = state.defaults.highest;
-$("#defaultAtmos").checked = state.defaults.atmos;
+$("#defaultLowest").checked = state.defaults.lowest;
 
 applyTheme();
 applyLocale();
-refreshAll();
-state.timer = setInterval(refreshJobs, 1200);
-state.accountTimer = setInterval(refreshAccounts, 10000);
+
+// 登录门禁:等待平台登录后再启动网络初始化(下载器)
+let appStarted = false;
+function startApp() {
+  if (appStarted) return;
+  appStarted = true;
+  refreshAll();
+  // 任务列表轮询仅服务于下载器视图;间隔 3s(不需要 1.2s 那么密)。
+  // refreshJobs 内部已按路由判断,播放器视图直接跳过网络请求。
+  state.timer = setInterval(refreshJobs, 3000);
+  state.accountTimer = setInterval(refreshAccounts, 10000);
+  // 切回下载器视图时立即刷新一次,避免等待下一次 tick
+  new MutationObserver(() => {
+    if (document.body.dataset.route === "downloads") refreshJobs();
+  }).observe(document.body, { attributes: true, attributeFilter: ["data-route"] });
+}
+function onAuth() {
+  if (window.ATPAuth && window.ATPAuth.user) { startApp(); maybeShowOnboarding(); }
+  renderAuthButton();
+}
+if (window.ATPAuth && window.ATPAuth.user) { startApp(); renderAuthButton(); maybeShowOnboarding(); }
+window.addEventListener("atp-auth", onAuth);
 })();

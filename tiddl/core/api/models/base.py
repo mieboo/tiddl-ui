@@ -37,6 +37,10 @@ class ArtistAlbumsItems(Items):
     items: List[Album]
 
 
+class ArtistTracksItems(Items):
+    items: List[Track]
+
+
 class ArtistVideosItems(Items):
     items: List[Video]
 
@@ -88,7 +92,7 @@ class PlaylistItems(Items):
 
         item: PlaylistVideo
         type: ItemType = "video"
-        cut: None
+        cut: None = None
 
     class PlaylistTrackItem(BaseModel):
         class PlaylistTrack(Track):
@@ -100,7 +104,7 @@ class PlaylistItems(Items):
 
         item: PlaylistTrack
         type: ItemType = "track"
-        cut: None
+        cut: None = None
 
     items: List[Union[PlaylistTrackItem, PlaylistVideoItem]]
 

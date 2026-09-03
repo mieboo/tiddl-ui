@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0c0e">
+  <title>Admin - Abducted Tidal Player</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("tiddl-theme") || "dark";
+    const _lang = localStorage.getItem("tiddl-language") || "en";
+    document.documentElement.lang = _lang === "zh" ? "zh-CN" : "en";
+  </script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div id="adminGate" class="login-gate">
+    <form id="adminLoginForm" class="login-card" autocomplete="off">
+      <div class="login-brand">
+        <span class="brand-mark"><svg viewBox="8 8.5 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M32 19 L44.4 28 L39.6 42.5 L24.4 42.5 L19.6 28 Z"/><path d="M44.4 28 L51 25.9 M39.6 42.5 L43.8 48.2 M24.4 42.5 L20.2 48.2 M19.6 28 L13 25.9"/><circle cx="44.4" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="39.6" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="24.4" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="19.6" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="51" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="43.8" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="20.2" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="13" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="32" cy="19" r="5.2" fill="currentColor" stroke="none"/></svg></span>
+        <h1>Admin</h1>
+        <p>Administrator access required</p>
+      </div>
+      <label class="field"><span>Username</span><input id="loginUsername" name="username" type="text" autocomplete="username" required></label>
+      <label class="field"><span>Password</span><input id="loginPassword" name="password" type="password" autocomplete="current-password" required></label>
+      <label class="field" id="totpField" hidden><span>2FA code</span><input id="loginTotp" name="totp" type="text" autocomplete="one-time-code" inputmode="numeric" maxlength="6" placeholder="123456"></label>
+      <p id="loginError" class="login-error" hidden></p>
+      <button class="button button-primary" type="submit" id="loginSubmit"><i data-lucide="log-in"></i><span>Sign in</span></button>
+      <a class="qr-muted" href="/" style="text-align:center;text-decoration:none;">← Back to player</a>
+    </form>
+  </div>
+
+  <main id="adminApp" class="admin-shell" hidden>
+    <header class="topbar">
+      <span class="brand" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)">
+        <span class="brand-mark"><svg viewBox="8 8.5 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M32 19 L44.4 28 L39.6 42.5 L24.4 42.5 L19.6 28 Z"/><path d="M44.4 28 L51 25.9 M39.6 42.5 L43.8 48.2 M24.4 42.5 L20.2 48.2 M19.6 28 L13 25.9"/><circle cx="44.4" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="39.6" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="24.4" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="19.6" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="51" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="43.8" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="20.2" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="13" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="32" cy="19" r="5.2" fill="currentColor" stroke="none"/></svg></span>
+        <strong>Admin</strong>
+      </span>
+      <nav class="topbar-nav"><a href="/downloads" data-i18n="downloads">Downloader</a><a href="/" data-i18n="player">Player</a></nav>
+      <div class="top-actions" style="margin-left:auto">
+        <span id="adminWho" class="qr-muted"></span>
+        <button id="logoutButton" class="button button-secondary" type="button"><i data-lucide="log-out"></i><span>Sign out</span></button>
+      </div>
+    </header>
+    <div class="workspace admin-workspace">
+      <div class="system-facts" id="adminFacts"></div>
+
+      <div class="preview-specs" style="margin:18px 0 10px">
+        <h3 style="margin:0">System monitor</h3>
+        <button class="icon-button bordered" type="button" id="monitorRefresh" title="Refresh monitor" style="margin-left:auto"><i data-lucide="refresh-cw"></i></button>
+      </div>
+      <div id="monitorPanel" class="account-empty">Loading…</div>
+
+      <div class="preview-specs" style="margin:24px 0 10px">
+        <h3 style="margin:0">Bandwidth &amp; rate limiting</h3>
+      </div>
+      <div id="bandwidthPanel" class="bandwidth-panel account-empty">
+        <div class="bandwidth-controls">
+          <label class="toggle-field" title="Enable bandwidth balancing"><input id="bandwidthEnabled" type="checkbox"><span class="toggle"></span><span>Enable balancing</span></label>
+          <label class="bandwidth-cap-field"><span>Total cap (Mbps)</span><input id="bandwidthCapMbps" type="number" min="1" max="10000" step="1" value="400" style="height:36px;width:110px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)"></label>
+          <button class="button button-primary" type="button" id="bandwidthSave" style="height:36px"><i data-lucide="save"></i><span>Save</span></button>
+          <span id="bandwidthStatus" class="qr-muted" style="margin-left:auto"></span>
+        </div>
+        <div id="bandwidthJobs" class="bandwidth-jobs"></div>
+        <div id="bandwidthUsers" class="bandwidth-users"></div>
+      </div>
+
+      <div class="preview-specs" style="margin:18px 0 10px">
+        <h3 style="margin:0">Platform users</h3>
+      </div>
+      <form id="userCreateForm" class="admin-user-form" style="margin-bottom:10px">
+        <div class="admin-user-field">
+          <input id="newUsername" type="text" placeholder="Username (A-Z a-z 0-9 . _ -)" autocomplete="off" spellcheck="false" style="height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
+          <small class="admin-user-hint" id="usernameHint">Letters, digits, dots, underscores, dashes</small>
+        </div>
+        <div class="admin-user-field">
+          <div class="admin-password-wrap">
+            <input id="newPassword" type="password" placeholder="Password (min 6)" autocomplete="new-password" style="height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
+            <button class="icon-button bordered" type="button" id="toggleNewPassword" tabindex="-1" aria-label="Show password"><i data-lucide="eye"></i></button>
+          </div>
+          <small class="admin-user-hint" id="passwordHint">At least 6 characters</small>
+        </div>
+        <div class="admin-user-field">
+          <div class="admin-password-wrap">
+            <input id="newPasswordConfirm" type="password" placeholder="Confirm password" autocomplete="new-password" style="height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
+          </div>
+          <small class="admin-user-hint" id="confirmHint"></small>
+        </div>
+        <label class="toggle-field admin-user-admin" title="Make administrator"><input id="newAdmin" type="checkbox"><span class="toggle"></span><span>admin</span></label>
+        <button class="button button-primary" type="submit" style="height:36px"><i data-lucide="user-plus"></i><span>Create</span></button>
+        <p id="userCreateMessage" class="admin-user-message" hidden></p>
+      </form>
+      <div id="userList" class="account-list"></div>
+
+      <div class="preview-specs" style="margin:24px 0 10px">
+        <h3 style="margin:0">Change password</h3>
+      </div>
+      <form id="changePasswordForm" class="resource-label-row" style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <input id="cpCurrent" type="password" placeholder="Current password" autocomplete="current-password" style="height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
+        <input id="cpNew" type="password" placeholder="New password" autocomplete="new-password" style="height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
+        <button class="button button-primary" type="submit" style="height:36px"><i data-lucide="key-round"></i><span>Update</span></button>
+      </form>
+
+      <div class="preview-specs" style="margin:24px 0 10px">
+        <h3 style="margin:0">Two-factor authentication</h3>
+      </div>
+      <div id="totpSection" class="account-empty">
+        <span id="totpStatus">Checking…</span>
+        <div id="totpSetupPanel" hidden style="margin-top:12px">
+          <p class="qr-muted">Scan the QR below with your authenticator app (e.g. Google Authenticator), then enter the 6-digit code.</p>
+          <div id="totpQrWrap" style="border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;margin:10px 0;width:fit-content"><img id="totpQr" width="160" height="160" alt="TOTP QR code"></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="totpCode" type="text" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code" style="height:36px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
+            <button class="button button-primary" type="button" id="totpEnableButton" style="height:36px"><i data-lucide="shield-check"></i><span>Enable</span></button>
+          </div>
+        </div>
+        <button class="button button-secondary" type="button" id="totpDisableButton" hidden style="margin-top:10px"><i data-lucide="shield-x"></i><span>Disable 2FA</span></button>
+      </div>
+
+      <div class="preview-specs" style="margin:24px 0 10px">
+        <h3 style="margin:0">Tidal account pool</h3>
+      </div>
+      <button class="button button-primary" type="button" id="addAccountButton" style="margin-bottom:10px"><i data-lucide="user-plus"></i><span>Add Tidal account</span></button>
+      <div id="accountList" class="account-list"></div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="/static/admin.js"></script>
+</body>
+</html>

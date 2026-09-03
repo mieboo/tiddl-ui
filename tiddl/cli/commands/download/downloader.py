@@ -23,12 +23,17 @@ from tiddl.core.utils.const import (
     video_qualities,
 )
 from tiddl.core.utils.ffmpeg import convert_to_mp4, extract_flac
+from tiddl.core.utils.spec import StreamSpec
 
 from .output import RichOutput
 
 log = getLogger(__name__)
 
 CHUNK_SIZE = 1024**2
+# 进度采样间隔(秒):至少间隔这么久才计算一次下载速度
+SPEED_SAMPLE_INTERVAL_S = 0.25
+# 分段下载的进度上限:单段未完成时显示 99%,避免误报 100%
+MULTI_SEGMENT_PROGRESS_CAP = 0.99
 
 
 def emit_web_event(event: str, **data) -> None:
@@ -91,6 +96,21 @@ class Downloader:
         self.match_existing_path_case = match_existing_path_case
         self.dolby_atmos_filter = dolby_atmos_filter
 
+    async def close(self) -> None:
+        """关闭底层 API 会话,释放缓存/连接。
+
+        ``__init__.py`` 的 ``run`` 在全部任务结束后调用 ``await downloader.close()``,
+        但该方法在历次重构中缺失,导致下载全部成功后在收尾阶段抛
+        ``AttributeError: 'Downloader' object has no attribute 'close'``,
+        任务被误标为失败。此处补上(会话是 CachedSession,close 会落盘缓存)。
+        """
+        try:
+            session = getattr(self.api, "session", None)
+            if session is not None:
+                session.close()
+        except Exception as exc:
+            log.warning("Failed to close downloader API session: %s", exc)
+
     def get_path(self, base_path: Path, relative_path: Path) -> Path:
         if self.match_existing_path_case:
             return resolve_existing_path_case(base_path, relative_path)
@@ -131,7 +151,7 @@ class Downloader:
         result_message = "[green]Downloaded"
 
         if existing_file_path.exists():
-            result_message = "[cyan]Overwrited"
+            result_message = "[cyan]Overwritten"
 
             if self.skip_existing:
                 self.rich_output.show_item_result(
@@ -139,6 +159,7 @@ class Downloader:
                     item_description=f"[{vibrant_color}]{item.title}",
                     item_path=existing_file_path,
                 )
+                emit_web_event("download_complete", item_id=str(item.id), title=item.title, path=str(existing_file_path))
                 return existing_file_path, False
 
         elif (isinstance(item, Video) and self.videos_filter == "none") or (
@@ -163,9 +184,15 @@ class Downloader:
                         f"{stream.trackId=}, {stream.audioQuality=}, {stream.audioMode=}"
                     )
 
+                    # Atmos 过滤:filter=none 跳过 Atmos 曲目,**仅当该曲目有 STEREO 替代版本**;
+                    # Atmos-only 曲目(元数据 audioModes 无 STEREO)没有立体声可下,应照常下载。
+                    # (River 等 Atmos-only 曲目 v1 只给 E-AC-3,若因 filter=none 跳过 → 永远下不了)
+                    track_modes = list(getattr(item, "audioModes", []) or [])
+                    atmos_only = track_modes and "STEREO" not in track_modes
                     if (
                         self.dolby_atmos_filter == "none"
                         and stream.audioMode == "DOLBY_ATMOS"
+                        and not atmos_only
                     ) or (
                         self.dolby_atmos_filter == "only"
                         and stream.audioMode == "STEREO"
@@ -182,22 +209,39 @@ class Downloader:
                     )
                     return None, False
 
-                urls, _ = parse_track_stream(stream)
+                urls, extension = parse_track_stream(stream)
                 download_path = self.get_path(self.download_path, filename)
 
-                quality_string = track_qualities_color[stream.audioQuality]
-
+                # P0-4:预测扩展名必须与实际落盘一致——用实际 audioMode 重新预测 skip 路径,
+                # 否则 Atmos 流预测 .flac 实际 .m4a,导致 skip-existing 永远命中失败、反复重下。
+                actual_filename = get_existing_track_filename(
+                    item.audioQuality, self.track_quality, file_path, audio_mode=stream.audioMode
+                )
+                actual_existing = self.get_path(self.scan_path, actual_filename)
                 if (
-                    stream.audioQuality in ["HI_RES_LOSSLESS", "LOSSLESS"]
-                    and stream.audioMode == "STEREO"
+                    self.skip_existing
+                    and actual_existing.exists()
+                    and actual_existing != existing_file_path
                 ):
-                    quality_string = f"{quality_string} {stream.bitDepth}-bit, {(stream.sampleRate or 0) / 1000:.1f} kHz"
-                    should_extract_flac = True
+                    self.rich_output.show_item_result(
+                        result_message="[yellow]Exists",
+                        item_description=f"[{vibrant_color}]{item.title}",
+                        item_path=actual_existing,
+                    )
+                    emit_web_event("download_complete", item_id=str(item.id), title=item.title, path=str(actual_existing))
+                    return actual_existing, False
+
+                # 统一规格显示:码率/位深/采样率/编码与真实流一一对应(StreamSpec)
+                spec = StreamSpec.from_stream(stream, extension)
+                should_extract_flac = spec.extension == ".flac"
+                if should_extract_flac:
+                    quality_string = f"{track_qualities_color[stream.audioQuality]} {spec.spec_label}"
                 else:
                     download_path = download_path.with_suffix(".m4a")
-
                     if stream.audioMode == "DOLBY_ATMOS":
-                        quality_string = "[blue]Dolby Atmos[/]"
+                        quality_string = f"[blue]{spec.spec_label}[/]"
+                    else:
+                        quality_string = f"{track_qualities_color[stream.audioQuality]} {spec.spec_label}"
 
             elif isinstance(item, Video):
                 stream = self.api.get_video_stream(
@@ -225,92 +269,109 @@ class Downloader:
             # TODO shouldnt session be reused instead of
             # creating new one on every download?
 
-            with NamedTemporaryFile(
-                "wb", delete=False, dir=download_path.parent
-            ) as tmp:
-                async with aiohttp.ClientSession(trust_env=True) as session:
-                    async with aiofiles.open(tmp.name, "wb") as f:
-                        downloaded = 0
-                        last_bytes = 0
-                        last_update = time.monotonic()
-                        for segment_index, url in enumerate(urls):
-                            async with session.get(url) as resp:
-                                resp.raise_for_status()
-                                content_length = resp.content_length
-                                exact_total = content_length if len(urls) == 1 else None
-                                async for chunk in resp.content.iter_chunked(
-                                    CHUNK_SIZE
-                                ):
-                                    await f.write(chunk)
-                                    downloaded += len(chunk)
-                                    self.rich_output.download_advance(
-                                        task_id, size=len(chunk)
-                                    )
-                                    now = time.monotonic()
-                                    elapsed = now - last_update
-                                    if elapsed >= 0.25:
-                                        speed = (downloaded - last_bytes) / elapsed
-                                        if exact_total:
-                                            progress = min(downloaded / exact_total, 1.0)
-                                        else:
-                                            segment_progress = (
-                                                resp.content.total_bytes / content_length
-                                                if content_length
-                                                else 0
-                                            )
-                                            progress = min(
-                                                (segment_index + segment_progress) / len(urls),
-                                                0.99,
-                                            )
-                                        emit_web_event(
-                                            "download_progress",
-                                            item_id=str(item.id),
-                                            title=item.title,
-                                            downloaded=downloaded,
-                                            total=exact_total,
-                                            speed=speed,
-                                            progress=progress,
-                                            segment=segment_index + 1,
-                                            segment_count=len(urls),
+            try:
+                with NamedTemporaryFile(
+                    "wb", delete=False, dir=download_path.parent
+                ) as tmp:
+                    async with aiohttp.ClientSession(trust_env=True) as session:
+                        async with aiofiles.open(tmp.name, "wb") as f:
+                            downloaded = 0
+                            last_bytes = 0
+                            last_update = time.monotonic()
+                            for segment_index, url in enumerate(urls):
+                                async with session.get(url) as resp:
+                                    resp.raise_for_status()
+                                    content_length = resp.content_length
+                                    exact_total = content_length if len(urls) == 1 else None
+                                    async for chunk in resp.content.iter_chunked(
+                                        CHUNK_SIZE
+                                    ):
+                                        await f.write(chunk)
+                                        downloaded += len(chunk)
+                                        self.rich_output.download_advance(
+                                            task_id, size=len(chunk)
                                         )
-                                        last_bytes = downloaded
-                                        last_update = now
+                                        now = time.monotonic()
+                                        elapsed = now - last_update
+                                        if elapsed >= SPEED_SAMPLE_INTERVAL_S:
+                                            speed = (downloaded - last_bytes) / elapsed
+                                            if exact_total:
+                                                progress = min(downloaded / exact_total, 1.0)
+                                            else:
+                                                segment_progress = (
+                                                    resp.content.total_bytes / content_length
+                                                    if content_length
+                                                    else 0
+                                                )
+                                                progress = min(
+                                                    (segment_index + segment_progress) / len(urls),
+                                                    MULTI_SEGMENT_PROGRESS_CAP,
+                                                )
+                                            emit_web_event(
+                                                "download_progress",
+                                                item_id=str(item.id),
+                                                title=item.title,
+                                                downloaded=downloaded,
+                                                total=exact_total,
+                                                speed=speed,
+                                                progress=progress,
+                                                segment=segment_index + 1,
+                                                segment_count=len(urls),
+                                            )
+                                            last_bytes = downloaded
+                                            last_update = now
+    
+                            emit_web_event(
+                                "download_progress",
+                                item_id=str(item.id),
+                                title=item.title,
+                                downloaded=downloaded,
+                                total=downloaded,
+                                speed=0,
+                                progress=1.0,
+                                segment=len(urls),
+                                segment_count=len(urls),
+                            )
+    
+                shutil.move(tmp.name, download_path)
+    
+                try:
+                    download_path.chmod(0o644)
+                except OSError:
+                    pass
+    
+                try:
+                    if isinstance(item, Track) and should_extract_flac:
+                        download_path = extract_flac(download_path)
+                    elif isinstance(item, Video):
+                        download_path = convert_to_mp4(download_path)
+                except Exception as exc:
+                    # 转码失败不能伪装成功:删除坏文件并如实返回失败
+                    log.error(f"Transcode failed for {item.title}: {exc}")
+                    try:
+                        if download_path and download_path.exists():
+                            download_path.unlink()
+                    except OSError:
+                        pass
+                    self.rich_output.download_finish(task_id=task_id)
+                    return None, False
 
-                        emit_web_event(
-                            "download_progress",
-                            item_id=str(item.id),
-                            title=item.title,
-                            downloaded=downloaded,
-                            total=downloaded,
-                            speed=0,
-                            progress=1.0,
-                            segment=len(urls),
-                            segment_count=len(urls),
-                        )
+                task = self.rich_output.download_finish(
+                    task_id=task_id,
+                )
 
-            shutil.move(tmp.name, download_path)
+                self.rich_output.show_item_result(
+                    result_message=result_message,
+                    item_description=task.description,
+                    item_path=download_path,
+                )
 
-            try:
-                download_path.chmod(0o644)
-            except OSError:
-                pass
-
-            try:
-                if isinstance(item, Track) and should_extract_flac:
-                    download_path = extract_flac(download_path)
-                elif isinstance(item, Video):
-                    download_path = convert_to_mp4(download_path)
-            except Exception as exc:
-                log.error(f"{should_extract_flac=}, {exc=}")
-
-            task = self.rich_output.download_finish(
-                task_id=task_id,
-            )
-
-            self.rich_output.show_item_result(
-                result_message=result_message,
-                item_description=task.description,
-                item_path=download_path,
-            )
-
-            return download_path, True
+                emit_web_event("download_complete", item_id=str(item.id), title=item.title, path=str(download_path))
+                return download_path, True
+            finally:
+                # 下载/转码异常时清理残留临时文件(delete=False 不会自动删)
+                try:
+                    if Path(tmp.name).exists():
+                        Path(tmp.name).unlink()
+                except OSError:
+                    pass

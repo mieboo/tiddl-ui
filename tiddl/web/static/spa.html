@@ -18,26 +18,47 @@
   <link rel="stylesheet" href="/static/player.css">
 </head>
 <body>
+  <div id="loginGate" class="login-gate" hidden>
+    <form id="loginForm" class="login-card" autocomplete="off">
+      <div class="login-brand">
+        <span class="brand-mark"><svg viewBox="8 8.5 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M32 19 L44.4 28 L39.6 42.5 L24.4 42.5 L19.6 28 Z"/><path d="M44.4 28 L51 25.9 M39.6 42.5 L43.8 48.2 M24.4 42.5 L20.2 48.2 M19.6 28 L13 25.9"/><circle cx="44.4" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="39.6" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="24.4" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="19.6" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="51" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="43.8" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="20.2" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="13" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="32" cy="19" r="5.2" fill="currentColor" stroke="none"/></svg></span>
+        <h1>Abducted Tidal Player</h1>
+        <p data-i18n="loginSubtitle">Sign in to continue</p>
+      </div>
+      <label class="field"><span data-i18n="username">Username</span><input id="loginUsername" name="username" type="text" autocomplete="username" required></label>
+      <label class="field"><span data-i18n="password">Password</span><input id="loginPassword" name="password" type="password" autocomplete="current-password" required></label>
+      <p id="loginError" class="login-error" hidden></p>
+      <button class="button button-primary" type="submit" id="loginSubmit"><i data-lucide="log-in"></i><span data-i18n="signIn">Sign in</span></button>
+      <a class="qr-muted giveaway-link" href="/giveaway" data-i18n="getAccount">No account? Claim one</a>
+    </form>
+  </div>
   <header class="topbar">
     <a class="brand" href="/" aria-label="Abducted Tidal Player home">
       <span class="brand-mark"><svg viewBox="8 8.5 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M32 19 L44.4 28 L39.6 42.5 L24.4 42.5 L19.6 28 Z"/><path d="M44.4 28 L51 25.9 M39.6 42.5 L43.8 48.2 M24.4 42.5 L20.2 48.2 M19.6 28 L13 25.9"/><circle cx="44.4" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="39.6" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="24.4" cy="42.5" r="4.2" fill="currentColor" stroke="none"/><circle cx="19.6" cy="28" r="4.2" fill="currentColor" stroke="none"/><circle cx="51" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="43.8" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="20.2" cy="48.2" r="3" fill="currentColor" stroke="none"/><circle cx="13" cy="25.9" r="3" fill="currentColor" stroke="none"/><circle cx="32" cy="19" r="5.2" fill="currentColor" stroke="none"/></svg></span>
       <span>ATP</span>
     </a>
-    <span id="playSpeed" class="play-speed" hidden><i data-lucide="activity"></i><strong id="playSpeedValue">0 B/s</strong></span>
     <nav class="topbar-nav">
-      <a href="/" data-route-link="downloads" data-i18n="downloads">Downloads</a><a href="/player" data-route-link="player" data-i18n="player">Player</a>
+      <a href="/" data-route-link="player" title="Player" aria-label="Player"><i data-lucide="play"></i></a><a href="/downloads" data-route-link="downloads" title="Downloader" aria-label="Downloader"><i data-lucide="download"></i></a>
     </nav>
+    <span id="playSpeed" class="play-speed" hidden><i data-lucide="activity"></i><strong id="playSpeedValue">0 B/s</strong></span>
     <div class="top-actions">
-      <button id="qrButton" class="icon-button bordered downloads-only" type="button" aria-label="Use on phone" title="Use on phone"><i data-lucide="smartphone"></i></button>
-      <label class="language-control" aria-label="Interface language">
+      <label class="language-control" title="Language" aria-label="Language">
         <i data-lucide="languages"></i>
         <select id="languageSelect">
-          <option value="en">English</option>
+          <option value="en">EN</option>
           <option value="zh">中文</option>
         </select>
       </label>
       <button id="themeButton" class="icon-button bordered" type="button" aria-label="Switch color theme" title="Switch color theme"><i data-lucide="sun"></i></button>
-      <button id="authButton" class="button button-secondary downloads-only" type="button"><i data-lucide="log-in"></i><span>Sign in</span></button>
+      <div id="userMenu" class="user-menu">
+        <button id="authButton" class="icon-button bordered" type="button" aria-haspopup="menu" aria-expanded="false" title="Account"><i data-lucide="log-in"></i></button>
+        <div id="userMenuPanel" class="user-menu-panel" hidden role="menu">
+          <div class="user-menu-header"><strong id="userMenuName"></strong></div>
+          <button class="user-menu-item" type="button" data-user-action="accounts" hidden role="menuitem"><i data-lucide="radio"></i><span data-i18n="tidalAccount">Tidal accounts</span></button>
+          <button class="user-menu-item" type="button" data-user-action="password" role="menuitem"><i data-lucide="key-round"></i><span data-i18n="changePassword">Change password</span></button>
+          <button class="user-menu-item" type="button" data-user-action="logout" role="menuitem"><i data-lucide="log-out"></i><span data-i18n="signOut">Sign out</span></button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -89,6 +110,7 @@
 
   <!-- ===================== 播放器视图 ===================== -->
   <main id="view-player" class="player-shell">
+    <div id="playerDrawerBackdrop" class="player-drawer-backdrop" hidden></div>
     <section class="library-panel">
       <div class="queue-head">
         <div class="library-tabs">
@@ -101,6 +123,7 @@
         <div class="player-search-wrap">
           <i data-lucide="search"></i><input id="playerSearch" type="search" data-placeholder="searchPlaceholder" placeholder="Search tracks and albums, or paste a Tidal link">
           <span id="searchSpinner" hidden><i data-lucide="loader-circle"></i></span>
+          <span class="search-clear icon-button" id="searchClear" data-search-clear="playerSearch" hidden><i data-lucide="x"></i></span>
           <span class="queue-remove" id="clearQueue" data-title="clear" hidden><i data-lucide="trash-2"></i></span>
         </div>
         <div id="playerSearchResults" class="player-search-results" hidden></div>
@@ -108,7 +131,6 @@
         <div id="queueEmpty" class="player-empty"><i data-lucide="list-music"></i><span data-i18n="empty">Search or paste a track or album link</span></div>
         <div id="playerFavorites" class="player-queue" hidden></div>
         <div id="favEmpty" class="player-empty" hidden><i data-lucide="heart"></i><span data-i18n="favEmpty">Tracks you favorite will appear here</span></div>
-        <div class="player-search-wrap" id="followSearchWrap"><i data-lucide="search"></i><input id="followSearch" type="search" autocomplete="off" data-placeholder="followSearchPlaceholder" placeholder="Filter followed artists"></div>
         <div id="playerFollowing" class="player-queue" hidden></div>
         <div id="followEmpty" class="player-empty" hidden><i data-lucide="user-round-plus"></i><span data-i18n="followEmpty">Artists you follow will appear here</span></div>
       </div>
@@ -128,7 +150,7 @@
         <button id="downloadButton" class="icon-button" type="button" data-title="download" disabled><i data-lucide="download"></i></button>
       </div>
       <div class="play-options">
-        <div class="play-quality"><i data-lucide="gauge"></i><div id="qualityControl" class="preview-specs quality-specs"></div></div>
+        <div class="play-quality"><div id="qualityControl" class="preview-specs quality-specs"></div></div>
         <button id="playerSettingsButton" class="icon-button player-settings-button" type="button" data-title="settings" title="Player settings"><i data-lucide="settings-2"></i></button>
         <div class="volume"><button id="mute" class="icon-button" type="button" data-title="mute"><i data-lucide="volume-2"></i></button><input id="volume" type="range" min="0" max="1" value="0.8" step="0.01"></div>
       </div>
@@ -178,7 +200,7 @@
           <input id="defaultHighest" type="checkbox"><span class="toggle"></span><span data-i18n="defaultHighest">Use highest quality by default</span>
         </label>
         <label class="toggle-field">
-          <input id="defaultAtmos" type="checkbox"><span class="toggle"></span><span data-i18n="defaultAtmos">Enable Atmos by default</span>
+          <input id="defaultLowest" type="checkbox"><span class="toggle"></span><span data-i18n="defaultLowest">Use lowest quality by default (saves data)</span>
         </label>
       </div>
     </div>
@@ -203,31 +225,51 @@
     <pre id="logOutput"></pre>
   </dialog>
 
-  <dialog id="qrDialog">
+  <!-- 修改密码 -->
+  <dialog id="passwordDialog" class="password-dialog">
     <div class="dialog-head">
-      <h2 data-i18n="qrTitle">Use on your phone</h2>
-      <button class="icon-button" data-close-qr type="button" aria-label="Close"><i data-lucide="x"></i></button>
+      <h2 data-i18n="changePassword">Change password</h2>
+      <button class="icon-button" data-close-password type="button" aria-label="Close"><i data-lucide="x"></i></button>
     </div>
-    <div class="dialog-content qr-content">
-      <canvas id="qrCanvas" width="180" height="180"></canvas>
-      <p id="qrBindWarning" class="qr-warn" hidden data-i18n="qrBindWarning"></p>
-      <ul id="qrUrls" class="qr-urls"></ul>
-      <p class="qr-hint" data-i18n="qrHint"></p>
-    </div>
+    <form id="passwordForm" class="dialog-content password-form">
+      <label class="field"><span data-i18n="currentPassword">Current password</span><input id="pwCurrent" name="current_password" type="password" autocomplete="current-password" required></label>
+      <label class="field"><span data-i18n="newPassword">New password</span><input id="pwNew" name="new_password" type="password" minlength="6" autocomplete="new-password" required></label>
+      <label class="field"><span data-i18n="confirmNewPassword">Confirm new password</span><input id="pwConfirm" type="password" minlength="6" autocomplete="new-password" required></label>
+      <p id="pwError" class="login-error" hidden></p>
+      <button class="button button-primary" type="submit"><i data-lucide="key-round"></i><span data-i18n="changePassword">Change password</span></button>
+    </form>
   </dialog>
+
+  <!-- ===================== 首次登录操作指引 ===================== -->
+  <div id="onboardingOverlay" class="onboarding-overlay" hidden>
+    <div class="onboarding-card">
+      <div class="onboarding-brand"><span class="brand-mark"><i data-lucide="sparkles"></i></span></div>
+      <h2 data-i18n="onboardingTitle">Welcome to ATP</h2>
+      <ol class="onboarding-steps">
+        <li data-i18n="onboardingStep1">Search tracks and albums, or paste a Tidal link.</li>
+        <li data-i18n="onboardingStep2">Pick a quality (Hi-Res / FLAC / 320kbps) and start the download.</li>
+        <li data-i18n="onboardingStep3">Play right in your browser — Widevine DRM for the best quality.</li>
+      </ol>
+      <button id="onboardingDone" class="button button-primary" type="button" data-i18n="onboardingStart">Start listening</button>
+    </div>
+  </div>
+
 
   <!-- ===================== 播放器对话框 ===================== -->
   <dialog id="playerSettingsDialog" class="player-settings-dialog">
     <div class="dialog-head"><h2 data-i18n="settings">Player settings</h2><button class="icon-button" data-close-settings type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
     <div class="player-settings-content">
       <label class="toggle-field"><input id="playerDefaultHighest" type="checkbox"><span class="toggle"></span><span data-i18n="defaultHighest">Play the highest quality by default</span></label>
-      <label class="toggle-field"><input id="playerDefaultAtmos" type="checkbox"><span class="toggle"></span><span data-i18n="defaultAtmos">Enable Atmos by default</span></label>
+      <label class="toggle-field"><input id="playerDefaultLowest" type="checkbox"><span class="toggle"></span><span data-i18n="defaultLowest">Play the lowest quality by default (96 kbps, saves data)</span></label>
+      <label class="toggle-field"><input id="playerNoImages" type="checkbox"><span class="toggle"></span><span data-i18n="noImages">Disable images (saves data)</span></label>
     </div>
   </dialog>
   <div id="toast" class="toast" role="status"></div>
 
-  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="/static/lucide.min.js"></script>
+  <script src="/static/hammer.min.js"></script>
+  <script src="/static/auth.js"></script>
+  <script src="/static/telemetry.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/player.js"></script>
   <script src="/static/router.js"></script>
