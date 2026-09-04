@@ -687,6 +687,10 @@ async function playDrm(bundle) {
     // 预取阈值:手机网络慢,FLAC 段下载耗时;阈值太小(8s)拉取追不上播放 → 51s 处缓冲耗尽卡死。
     // 保持至少 ~30s 前瞻缓冲,并用并行拉取补足。
     const PREFETCH_AHEAD = 30;
+    // 熔断:连续拉取失败达阈值(如 CDN 拒绝/CORS 拦截)就停止 feed,避免无限重试刷遥测。
+    // 仅「连续」失败才熔断——单段成功即清零(网络抖动恢复后能继续)。
+    let consecutiveFails = 0;
+    const MAX_CONSECUTIVE_FAILS = 8;
     try {
       while (drmPlayback && nextSeg <= count) {
         const end = sb.buffered.length ? sb.buffered.end(sb.buffered.length - 1) : 0;
@@ -706,15 +710,30 @@ async function playDrm(bundle) {
             }
             return { seg, buf: null };
           }));
+          let roundFailed = 0;
           for (const item of results) {
             if (!drmPlayback) break;
             if (item.buf) {
               try {
                 await withTimeout(appendOne(sb, item.buf), 10000, `append seg ${item.seg}`);
                 nextSeg = Math.max(nextSeg, item.seg + 1);
+                consecutiveFails = 0; // 有成功段 → 复位熔断计数
               } catch (e) { if(window.ATPTrace)window.ATPTrace("feed.appendfail",{seg:item.seg,msg:String(e&&e.message||e)}); }
             } else {
+              roundFailed++;
               if(window.ATPTrace)window.ATPTrace("feed.fetchfail",{seg:item.seg});
+            }
+          }
+          // 熔断:本轮有失败段就累计,连续失败超阈值停止拉流并报错(避免 CDN 拒绝时无限重试)。
+          // 有成功段时已在上方复位计数;全部失败则整轮计入。
+          if (roundFailed > 0) {
+            consecutiveFails += roundFailed;
+            if (consecutiveFails >= MAX_CONSECUTIVE_FAILS) {
+              if(window.ATPTrace)window.ATPTrace("feed.stalled",{consecutiveFails, nextSeg});
+              drmPlayback = false;
+              showError(t("streamFailed"));
+              try { audio.pause(); } catch(_) {}
+              break;
             }
           }
           if (feedWake) { feedWake(); feedWake = null; }
