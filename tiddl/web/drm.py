@@ -266,12 +266,20 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
             if media_url and "$Number$" in media_url:
                 media_template = media_url
                 media_url = media_url.replace("$Number$", "1")
-    # 计算段数:统计所有 <S> 的重复次数(AdaptationSet 级别 SegmentTemplate)
-    for aset in root.iter("{urn:mpeg:dash:schema:mpd:2011}AdaptationSet"):
-        for st in aset.iter("{urn:mpeg:dash:schema:mpd:2011}SegmentTemplate"):
-            for s in st.iter("{urn:mpeg:dash:schema:mpd:2011}S"):
-                repeat = int(s.get("r", "0")) + 1
-                segment_count += repeat
+    # 计算段数:只统计所选档(best_rep)所在 AdaptationSet 的 <S>(各档段数不同,
+    # 全部累加会高估(56+55+55+56=222),feed 按高估数拉取超出实际段 → CDN 400)。
+    # 优先用 best_rep 自己的 SegmentTemplate;若模板在 AdaptationSet 层级则回退。
+    segment_count = 0
+    st_rep = best_rep.find("{urn:mpeg:dash:schema:mpd:2011}SegmentTemplate")
+    if st_rep is None:
+        for parent in root.iter("{urn:mpeg:dash:schema:mpd:2011}AdaptationSet"):
+            if best_rep in list(parent):
+                for st in parent.iter("{urn:mpeg:dash:schema:mpd:2011}SegmentTemplate"):
+                    st_rep = st
+                break
+    if st_rep is not None:
+        for s in st_rep.iter("{urn:mpeg:dash:schema:mpd:2011}S"):
+            segment_count += int(s.get("r", "0")) + 1
     duration_text = root.get("mediaPresentationDuration")
     if duration_text:
         # PT4M34.566S

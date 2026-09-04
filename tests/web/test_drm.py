@@ -158,3 +158,68 @@ class TestManifestCacheQualitySelection:
         cached_manifest = cache[("acct1", "track1", "ALL")][1]
         assert "root" in cached_manifest
         assert "format" not in cached_manifest  # 选档结果不入缓存
+
+
+class TestSegmentCountPerRepresentation:
+    """回归:segment_count 只统计所选档的段数,不能全 AdaptationSet 累加。
+
+    线上 bug:MPD 含 4 档各 55-56 段,旧代码累加得 222;feed 按 222 拉取,
+    段 57 超出 FLAC_HIRES 实际 56 段 → CDN 400 → 熔断报错(播放 3 分钟即断)。
+    """
+
+    MPD_TWO_REPS = """<?xml version="1.0"?>
+    <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" mediaPresentationDuration="PT4M34S">
+      <Period>
+        <AdaptationSet mimeType="audio/mp4">
+          <ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc"
+            xmlns:cenc="urn:mpeg:cenc:2013" cenc:default_KID="01234567-89ab-cdef-0123-456789abcdef"/>
+          <ContentProtection schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed">
+            <cenc:pssh xmlns:cenc="urn:mpeg:cenc:2013">AAAABHBzc2gAAAAA</cenc:pssh>
+          </ContentProtection>
+          <Representation id="FLAC_HIRES,96000,24" codecs="flac" bandwidth="1760365" audioSamplingRate="96000">
+            <SegmentTemplate initialization="init-hires.mp4" media="seg-hires-$Number$.mp4">
+              <SegmentTimeline><S t="0" d="6000" r="55"/></SegmentTimeline>
+            </SegmentTemplate>
+          </Representation>
+          <Representation id="AACLC,44100" codecs="mp4a.40.2" bandwidth="321708" audioSamplingRate="44100">
+            <SegmentTemplate initialization="init-aac.mp4" media="seg-aac-$Number$.mp4">
+              <SegmentTimeline><S t="0" d="6000" r="35"/></SegmentTimeline>
+            </SegmentTemplate>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>"""
+
+    def _make(self, monkeypatch, tmp_path):
+        import base64
+        import tiddl.web.drm as drm
+        from tiddl.web.drm import _v2_manifest_cache
+
+        _v2_manifest_cache.clear()
+
+        class _FakeResp:
+            status_code = 200
+
+            def json(self):
+                payload = base64.b64encode(self.MPD.encode()).decode()
+                return {"data": {"attributes": {"uri": f"data:application/dash+xml,{payload}"}}}
+
+        fake = _FakeResp()
+        fake.MPD = self.MPD_TWO_REPS
+        monkeypatch.setattr(drm, "_tidal_get", lambda *a, **k: fake)
+        monkeypatch.setattr(
+            drm, "account_context",
+            lambda account_id=None: type("C", (), {"api": type("A", (), {"client": type("T", (), {"token": "fake"})()})()})(),
+        )
+        return drm
+
+    def test_segment_count_scoped_to_selected_rep(self, monkeypatch, tmp_path):
+        from tiddl.web.drm import v2_formats_for_quality
+
+        drm = self._make(monkeypatch, tmp_path)
+        # FLAC_HIRES: r=55 → 56 段
+        b = drm.v2_drm_manifest("t1", "a1", v2_formats_for_quality("HI_RES_LOSSLESS"))
+        assert b["segment_count"] == 56
+        # AACLC: r=35 → 36 段(不能继承/累加另一档的 56)
+        b2 = drm.v2_drm_manifest("t1", "a1", v2_formats_for_quality("HIGH"))
+        assert b2["segment_count"] == 36
