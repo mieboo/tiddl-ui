@@ -149,20 +149,33 @@ def calibrate_qualities(meta_qualities: list[str], v2_formats: list[str] | str |
 
     meta_qualities: _track_qualities 元数据初判(可能含 _ATMOS 复合档)
     v2_formats: v2 manifest(adaptive=true)返回的全部 format 列表,
-                如 ["FLAC_HIRES","FLAC","AACLC","HEAACV1"];单字符串兼容旧调用。
+                如 ["FLAC_HIRES","FLAC","AACLC","HEAACV1"];单字符串兼容旧调用
+                —— 但 v1 分支传的是 session.quality(档位名,如 "LOSSLESS"),
+                此时按"已解析档位"处理,直接加入菜单(v1 能播什么就显示什么)。
 
     规则(双向校准:不漏能播的、不显不能播的):
     1. v2 能播的档 → 加入菜单(v2 是播放主通道,能力以它为准)
     2. v2 无 FLAC_HIRES → 无 HI_RES(v1 名义有但实际只给 44.1/16)
     3. 非 Atmos-only(元数据含纯立体声档)时,v1 档位作为兜底保留
+    4. v1 分支(传档位名)时,已解析档直接入菜单(修复 Atmos-only 曲目菜单为空的 bug)
     """
     if not v2_formats:
         return meta_qualities
-    if isinstance(v2_formats, str):
-        v2_formats = [v2_formats]
     order = ["LOW", "HIGH", "LOSSLESS", "HI_RES_LOSSLESS"]
     # v2 能播的档(播放主通道)
-    v2_tiers = {V2_FORMAT_TO_QUALITY[f] for f in v2_formats if f in V2_FORMAT_TO_QUALITY}
+    if isinstance(v2_formats, str):
+        # 单字符串:可能是 v2 format 名(FLAC)或 v1 档位名(LOSSLESS)
+        if v2_formats in V2_FORMAT_TO_QUALITY:
+            v2_tiers = {V2_FORMAT_TO_QUALITY[v2_formats]}
+        elif v2_formats in order:
+            # v1 分支传 session.quality:已解析档位直接入菜单
+            v2_tiers = {v2_formats}
+        else:
+            v2_tiers = set()
+        fmt_list = [v2_formats]
+    else:
+        v2_tiers = {V2_FORMAT_TO_QUALITY[f] for f in v2_formats if f in V2_FORMAT_TO_QUALITY}
+        fmt_list = v2_formats
     # 元数据里的纯立体声档(v1 兜底能力;全是 _ATMOS 复合 → Atmos-only,无 v1 兜底)
     plain_meta = {q for q in meta_qualities if q in order}
     atmos_only = not plain_meta
@@ -170,7 +183,7 @@ def calibrate_qualities(meta_qualities: list[str], v2_formats: list[str] | str |
     if not atmos_only:
         tiers |= plain_meta
     # HI_RES 仅 v2 提供(v1 名义有实际无)
-    if "FLAC_HIRES" not in v2_formats:
+    if "FLAC_HIRES" not in fmt_list:
         tiers.discard("HI_RES_LOSSLESS")
     return [t for t in order if t in tiers]
 
