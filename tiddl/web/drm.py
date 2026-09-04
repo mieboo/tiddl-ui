@@ -163,28 +163,40 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
     cache_key = "ALL"
     # 短缓存:同一账号同一曲目短窗口内重复播放不再请求 Tidal(更快更稳,减少限流)。
     # 缓存键必须含账号:不同账号的 DRM manifest/PSSH 不同,跨账号复用会导致 license 失败。
+    #
+    # 重要:缓存只存「原始 manifest 解析结果」(与档位无关),选档(best_rep)
+    # 必须在缓存外按每次请求的 fmt_list 重算——否则第一次请求(如 LOW)把
+    # best_rep=HEAACV1 固化进缓存,后续切 HIGH/LOSSLESS 也命中同一缓存返回
+    # 同一个 bundle,表现为「切什么音质都变回同一档位」(线上实测 bug)。
     now = time.time()
     cached = _v2_manifest_cache.get((account_id, track_id, cache_key))
     if cached and now - cached[0] < TIDAL_MANIFEST_CACHE_TTL:
-        return cached[1]
-    resp = _tidal_get(
-        f"https://openapi.tidal.com/v2/trackManifests/{track_id}?{query}",
-        params=None,
-        headers=headers,
-        timeout=45,
-    )
-    if resp.status_code != 200:
-        raise ValueError(f"Tidal v2 manifest request failed (HTTP {resp.status_code})")
-    attr = resp.json()["data"]["attributes"]
-    data_uri = attr["uri"]
-    payload = data_uri.split(",", 1)[1]
-    xml_text = base64.b64decode(payload).decode("utf-8")
-    root = ET.fromstring(xml_text)
+        manifest = cached[1]
+    else:
+        resp = _tidal_get(
+            f"https://openapi.tidal.com/v2/trackManifests/{track_id}?{query}",
+            params=None,
+            headers=headers,
+            timeout=45,
+        )
+        if resp.status_code != 200:
+            raise ValueError(f"Tidal v2 manifest request failed (HTTP {resp.status_code})")
+        attr = resp.json()["data"]["attributes"]
+        data_uri = attr["uri"]
+        payload = data_uri.split(",", 1)[1]
+        xml_text = base64.b64decode(payload).decode("utf-8")
+        manifest = {
+            "root": ET.fromstring(xml_text),
+            "pssh": None,
+            "kid": None,
+        }
+        _v2_manifest_cache[(account_id, track_id, cache_key)] = (now, manifest)
+    root = manifest["root"]
     ns = {
         "mpd": "urn:mpeg:dash:schema:mpd:2011",
         "cenc": "urn:mpeg:cenc:2013",
     }
-    # PSSH: prefer Widevine (edef8ba9...), else first pssh
+    # PSSH/kid 与档位无关,可从原始 manifest 直接提取(缓存内复算,成本可忽略)
     pssh = None
     for cp in root.iter("{urn:mpeg:dash:schema:mpd:2011}ContentProtection"):
         scheme = cp.get("schemeIdUri", "")
@@ -201,6 +213,7 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
         kid = cp.get("{urn:mpeg:cenc:2013}default_KID") or cp.get("cenc:default_KID")
         if kid:
             break
+    # PSSH/kid 已在缓存解析时提取(ns 在上方定义)
     # init / media URLs (escape &amp;)
     def _url(text: str | None) -> str | None:
         return html_mod.unescape(text) if text else None
@@ -311,7 +324,8 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
             }
         },
     }
-    _v2_manifest_cache[(account_id, track_id, cache_key)] = (time.time(), bundle)
+    # 缓存已在 193 行存原始 manifest(与档位无关);bundle 是按本次 fmt_list 选档的
+    # 结果,不能再覆盖缓存——否则切档会命中上一次选定的档位(线上实测 bug)。
     return bundle
 
 

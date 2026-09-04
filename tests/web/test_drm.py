@@ -74,3 +74,87 @@ class TestBrowserPrefersAac:
 
     def test_firefox_ua_case_insensitive(self):
         assert browser_prefers_aac("MOZILLA/5.0 FIREFOX/127.0") is True
+
+
+class TestManifestCacheQualitySelection:
+    """回归:缓存只存原始 manifest,选档必须按每次 fmt_list 重算。
+
+    线上 bug:缓存曾存「已选档的完整 bundle」,第一次请求(如 LOW)把
+    best_rep 固化,后续切 HIGH/LOSSLESS 命中同一缓存返回同一档位
+    (表现为切什么音质都变回 320kbps)。
+    """
+
+    # 4 档 MPD:FLAC_HIRES(1760365) / FLAC(941436) / AACLC(321708) / HEAACV1(97877)
+    MPD = """<?xml version="1.0"?>
+    <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" mediaPresentationDuration="PT4M34S">
+      <Period>
+        <AdaptationSet mimeType="audio/mp4">
+          <ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc"
+            xmlns:cenc="urn:mpeg:cenc:2013" cenc:default_KID="01234567-89ab-cdef-0123-456789abcdef"/>
+          <ContentProtection schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed">
+            <cenc:pssh xmlns:cenc="urn:mpeg:cenc:2013">AAAABHBzc2gAAAAA</cenc:pssh>
+          </ContentProtection>
+          <Representation id="FLAC_HIRES,1760365,96000,24" codecs="flac" bandwidth="1760365" audioSamplingRate="96000">
+            <SegmentTemplate initialization="init-hires.mp4" media="seg-hires-$Number$.mp4"/>
+          </Representation>
+          <Representation id="FLAC,941436,44100,16" codecs="flac" bandwidth="941436" audioSamplingRate="44100">
+            <SegmentTemplate initialization="init.mp4" media="seg-$Number$.mp4"/>
+          </Representation>
+          <Representation id="AACLC,321708,44100" codecs="mp4a.40.2" bandwidth="321708" audioSamplingRate="44100">
+            <SegmentTemplate initialization="init-aac.mp4" media="seg-aac-$Number$.mp4"/>
+          </Representation>
+          <Representation id="HEAACV1,97877,44100" codecs="mp4a.40.5" bandwidth="97877" audioSamplingRate="44100">
+            <SegmentTemplate initialization="init-heaac.mp4" media="seg-heaac-$Number$.mp4"/>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>"""
+
+    def _mock_manifest(self, monkeypatch, tmp_path):
+        """把 v2_drm_manifest 的网络请求替换成固定 MPD,隔离真实 Tidal。"""
+        import base64
+        import tiddl.web.drm as drm
+        from tiddl.web.drm import _v2_manifest_cache
+
+        _v2_manifest_cache.clear()
+
+        class _FakeResp:
+            status_code = 200
+
+            def json(self):
+                payload = base64.b64encode(self.MPD.encode()).decode()
+                return {"data": {"attributes": {"uri": f"data:application/dash+xml,{payload}"}}}
+
+        fake = _FakeResp()
+        fake.MPD = self.MPD
+
+        monkeypatch.setattr(drm, "_tidal_get", lambda *a, **k: fake)
+        monkeypatch.setattr(
+            drm,
+            "account_context",
+            lambda account_id=None: type("C", (), {"api": type("A", (), {"client": type("T", (), {"token": "fake"})()})()})(),
+        )
+        return drm, _v2_manifest_cache
+
+    def test_quality_switch_recomputes_selection_same_cache(self, monkeypatch, tmp_path):
+        drm, cache = self._mock_manifest(monkeypatch, tmp_path)
+        from tiddl.web.drm import v2_formats_for_quality
+
+        results = []
+        for q in ("HI_RES_LOSSLESS", "LOSSLESS", "HIGH", "LOW", "LOSSLESS"):
+            b = drm.v2_drm_manifest("track1", "acct1", v2_formats_for_quality(q))
+            results.append((q, b.get("format")))
+        # 每个档位应返回对应 format,且全程只请求一次 Tidal(缓存命中)
+        assert results == [
+            ("HI_RES_LOSSLESS", "FLAC_HIRES"),
+            ("LOSSLESS", "FLAC"),
+            ("HIGH", "AACLC"),
+            ("LOW", "HEAACV1"),
+            ("LOSSLESS", "FLAC"),
+        ]
+        # 缓存键与档位无关: 始终同一个键
+        assert len(cache) == 1
+        # 缓存内容是原始 manifest(含 root),而非选档后的 bundle
+        cached_manifest = cache[("acct1", "track1", "ALL")][1]
+        assert "root" in cached_manifest
+        assert "format" not in cached_manifest  # 选档结果不入缓存

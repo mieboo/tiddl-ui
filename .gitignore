@@ -167,3 +167,5 @@ cython_debug/
 
 # UV
 uv.lock
+# 遥测/临时测试目录(含真实账号凭据,绝不提交)
+.tele-test/
