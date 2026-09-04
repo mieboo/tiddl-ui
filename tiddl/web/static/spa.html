@@ -136,7 +136,7 @@
       </div>
     </section>
     <section class="now-panel">
-      <div class="now-art" id="nowArt"><img id="nowCover" alt=""><span id="coverPlaceholder"><i data-lucide="music-2"></i></span><div id="coverLyrics" class="cover-lyrics" hidden></div><canvas id="nowSpectrum" class="now-spectrum" width="640" height="120"></canvas></div>
+      <div class="now-art" id="nowArt"><img id="nowCover" alt=""><span id="coverPlaceholder"><i data-lucide="music-2"></i></span><div id="coverLyrics" class="cover-lyrics" hidden></div></div>
       <div class="now-copy"><h2 id="nowTitle" data-i18n="nothingPlaying">Nothing playing</h2><p id="nowArtist"><span id="nowArtistName" class="copy-link" data-artist-open="">Abducted Tidal Player</span><span class="copy-sep"> · </span><span id="nowAlbumName" class="copy-link" data-album-info=""></span></p></div>
       <div id="playerError" class="player-error" role="status"></div>
       <div class="seek-row"><span id="elapsed">0:00</span><input id="seek" type="range" min="0" max="1000" value="0"><span id="duration">0:00</span></div>
@@ -161,11 +161,18 @@
         <button class="library-tab active" data-panel-tab="artist" type="button"><span data-i18n="artistTab">Artist</span></button>
         <button class="library-tab" data-panel-tab="info" type="button"><span data-i18n="infoTab">Info</span></button>
         <button class="library-tab" data-panel-tab="lyrics" type="button"><span data-i18n="lyrics">Lyrics</span></button>
+        <button class="library-tab" data-panel-tab="spectrum" type="button"><span data-i18n="spectrum">Spectrum</span></button>
       </div>
       <div class="lyrics-body">
         <div id="artistView" class="artist-view" hidden></div>
         <div id="infoView" class="info-view" hidden></div>
         <div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div>
+        <div id="spectrumView" class="spectrum-view" hidden>
+          <div class="spectrum-wrap">
+            <canvas id="spectrumCanvas" class="spectrum-canvas" width="720" height="300"></canvas>
+          </div>
+          <p class="spectrum-hint" data-i18n="spectrumHint">Real-time frequency analyzer</p>
+        </div>
       </div>
     </aside>
   </main>
