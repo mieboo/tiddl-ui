@@ -96,7 +96,12 @@ from tiddl.web.state import (
     player_sessions,
     request_stats,
 )
-from tiddl.web.telemetry import _write_telemetry, telemetry_throttled
+from tiddl.web.telemetry import (
+    distinct_devices,
+    ingest_batch,
+    query_telemetry,
+    telemetry_throttled,
+)
 from tiddl.web.health import (
     check_account_health,
     check_account_subscription,
@@ -959,26 +964,68 @@ async def browser_download(track_id: str, quality: str = "high", atmos: Literal[
 
 @app.post("/api/telemetry")
 async def telemetry(request: Request, user: User = Depends(get_current_user)) -> dict:
-    """接收前端遥测并写入服务器日志,用于排查播放/交互问题。
+    """接收前端遥测(网页/移动端)并落盘,支持分账号、分设备。
 
-    任意登录账号启用;限流避免单个账号刷日志。
-    同时落盘到 telemetry.log 便于直接拉取分析。
+    请求体两种形态:
+    - 批量数组: [{seq, t, evt, data}, ...] (网页 telemetry.js 传统形态)
+    - 对象:     {device_id, session_id, events: [...]} (推荐新形态)
+
+    落盘到 telemetry/{account}/{date}.jsonl,每条带 account/device_id/session_id。
     """
-    # 全量启用后加限流:同一用户 10 秒内只接受一批(前端已按 30 条/5s 批量,不影响采集)
     if telemetry_throttled(user.username):
         return {"ok": True, "throttled": True}
     body = await request.body()
-    if len(body) > 128 * 1024:
+    if len(body) > 256 * 1024:
         raise HTTPException(status_code=413, detail="Telemetry payload too large.")
     try:
-        data = json.loads(body)
+        payload = json.loads(body)
     except Exception:
-        data = {"raw": body[:500].decode("utf-8", "replace")}
-    line = f"TELEMETRY[{user.username}] {json.dumps(data, ensure_ascii=False)[:6000]}"
-    # 直接写 stderr(systemd/journalctl 捕获),避免 root logger INFO 级别被丢弃
-    print(line, flush=True)
-    _write_telemetry(line)
-    return {"ok": True}
+        payload = {"raw": body[:500].decode("utf-8", "replace")}
+
+    device_id = session_id = None
+    events: list = []
+    if isinstance(payload, dict):
+        device_id = payload.get("device_id")
+        session_id = payload.get("session_id")
+        events = payload.get("events") or []
+    elif isinstance(payload, list):
+        events = payload
+
+    written = ingest_batch(user.username, events, device_id=device_id, session_id=session_id)
+    # 兼容旧形态:raw 兜底也记一条
+    if not written and payload.get("raw"):
+        ingest_batch(user.username, [{"evt": "raw", "data": {"raw": payload["raw"]}}],
+                     device_id=device_id, session_id=session_id)
+        written = 1
+    return {"ok": True, "written": written}
+
+
+@app.get("/api/admin/telemetry")
+async def admin_telemetry(
+    account: str | None = None,
+    device: str | None = None,
+    evt: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
+    limit: int = Query(default=200, ge=1, le=5000),
+    _user: User = Depends(require_admin),
+) -> dict:
+    """管理员查询遥测:按账号/设备/事件类型/时间窗过滤(最近优先)。"""
+    events = query_telemetry(
+        account=account, device_id=device, evt=evt,
+        since=since, until=until, limit=limit,
+    )
+    devices = distinct_devices(account)
+    return {"events": events, "devices": devices, "count": len(events)}
+
+
+@app.get("/api/admin/telemetry/devices")
+async def admin_telemetry_devices(
+    account: str | None = None,
+    _user: User = Depends(require_admin),
+) -> dict:
+    """设备清单:每个账号下有哪些设备、首末活跃时间、事件数。"""
+    return {"devices": distinct_devices(account)}
 
 
 @app.post("/api/preview")

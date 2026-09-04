@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
+import '../core/telemetry.dart';
 
 class AuthController extends ChangeNotifier {
   final ApiClient api;
@@ -23,6 +24,8 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
     try {
       await api.login(username, password, totp: totp);
+      telemetry.enable(); // 登录成功后启用遥测上报
+      telemetry.trace('auth.login', {'username': username});
       _busy = false;
       notifyListeners();
       return true;
@@ -35,6 +38,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    telemetry.trace('auth.logout', {});
     await api.logout();
     notifyListeners();
   }

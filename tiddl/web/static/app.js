@@ -467,6 +467,7 @@ async function searchResources() {
   try {
     const data = await api(`/api/search?query=${encodeURIComponent(query)}`);
     if (requestId !== state.searchRequest) return;
+    if (window.ATPTrace) window.ATPTrace("search.done", { query, count: (data.results||[]).length });
     state.searchResults = data.results;
     renderSearchResults(data.results);
   } catch (error) {

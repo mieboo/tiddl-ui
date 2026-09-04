@@ -200,6 +200,17 @@ class ApiClient {
     return m?.group(1);
   }
 
+  /// 遥测上报(fire-and-forget;未登录/失败静默,不阻塞 UI)。
+  Future<void> postTelemetry(Map<String, dynamic> body) async {
+    try {
+      await _dio.post(
+        AppConfig.url('/api/telemetry'),
+        data: jsonEncode(body),
+        options: Options(headers: _headers),
+      );
+    } catch (_) {/* 遥测失败不打扰用户 */}
+  }
+
   /// 搜索(曲目/专辑/艺术家)。
   Future<List<SearchResult>> search(String query) async {
     final resp = await _dio.get(

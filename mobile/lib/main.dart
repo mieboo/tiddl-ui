@@ -3,6 +3,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'core/config.dart';
 import 'core/api_client.dart';
+import 'core/telemetry.dart';
 import 'core/theme.dart';
 import 'auth/auth_controller.dart';
 import 'auth/login_screen.dart';
@@ -13,8 +14,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   await AppConfig.load();
+  await telemetry.init(); // 设备ID/会话ID(登录后才 enable 上报)
   final auth = AuthController(ApiClient.instance);
   await auth.restore();
+  if (auth.isLoggedIn) telemetry.enable();
   final player = PlayerController(ApiClient.instance);
   await player.load();
   runApp(TiddlApp(auth: auth, player: player));

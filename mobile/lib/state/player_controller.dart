@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
+import '../core/telemetry.dart';
 import '../models/library.dart';
 
 /// 状态中枢:队列(单曲+专辑混排)、收藏(两级+排除)、关注、播放器实例、持久化。
@@ -72,10 +73,14 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
     try {
       final t = queue[index];
+      telemetry.trace('play.start', {'index': index, 'track_id': t.id, 'title': t.title});
       final mt = await api.stream(t.id);
+      telemetry.trace('play.resolve', {'track_id': t.id, 'quality': mt.quality, 'codec': mt.codec, 'audio_mode': mt.audioMode});
       if (current != index) return; // 期间被用户切走,放弃
       await _player.open(Media(mt.url), play: true);
+      telemetry.trace('play.open', {'track_id': t.id});
     } catch (e) {
+      telemetry.trace('play.error', {'track_id': queue[index].id, 'msg': e.toString()});
       // 单曲解析失败:跳过
       if (current == index) {
         _player.stop();
@@ -121,12 +126,14 @@ class PlayerController extends ChangeNotifier {
 
   void toggleShuffle() {
     shuffle = !shuffle;
+    telemetry.trace('queue.shuffle', {'on': shuffle});
     notifyListeners();
     _schedulePersist();
   }
 
   void cycleRepeat() {
     repeat = (repeat + 1) % 3;
+    telemetry.trace('queue.repeat', {'mode': repeat});
     notifyListeners();
     _schedulePersist();
   }
@@ -135,6 +142,7 @@ class PlayerController extends ChangeNotifier {
   void addTrack(MobileTrack t, {String sourceType = 'track', String? sourceKey}) {
     final item = QueueTrack.fromMobile(t, sourceType: sourceType, sourceKey: sourceKey);
     if (trackInQueue(t.trackId)) return;
+    telemetry.trace('queue.add_track', {'track_id': t.trackId, 'source': sourceType});
     queue.add(item);
     notifyListeners();
     _schedulePersist();
@@ -162,6 +170,7 @@ class PlayerController extends ChangeNotifier {
 
   void removeFromQueue(int index) {
     if (index < 0 || index >= queue.length) return;
+    telemetry.trace('queue.remove_track', {'index': index, 'track_id': queue[index].id});
     queue.removeAt(index);
     if (index < current) {
       current--;
@@ -175,6 +184,7 @@ class PlayerController extends ChangeNotifier {
   }
 
   void clearQueue() {
+    telemetry.trace('queue.clear', {'count': queue.length});
     queue.clear();
     current = -1;
     openAlbums.clear();
@@ -291,6 +301,7 @@ class PlayerController extends ChangeNotifier {
   void toggleFollowArtist(String id, String name, {String? picture}) {
     final idx = follows.indexWhere((a) => a.id == id);
     if (idx >= 0) {
+      telemetry.trace('follow.unfollow', {'artist_id': id, 'name': name});
       follows.removeAt(idx);
     } else {
       follows.add(FollowArtist(id: id, name: name, picture: picture));
