@@ -20,12 +20,23 @@ async function api(path, options={}) {
   // 给请求加超时:手机网络波动/后端慢时避免永久挂起("Opening stream..."卡死)
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30000);
+  const t0 = performance.now();
   let response;
-  try { response = await fetch(path, { headers: { "Content-Type": "application/json" }, signal: ctrl.signal, ...options }); }
-  catch (err) { clearTimeout(timer); throw new Error(err && err.name === "AbortError" ? "Request timed out" : (t("requestFailed"))); }
+  let ok = false;
+  try { response = await fetch(path, { headers: { "Content-Type": "application/json" }, signal: ctrl.signal, ...options }); ok = response.ok; }
+  catch (err) { clearTimeout(timer); if (window.ATPTrace && /player|search/i.test(path)) window.ATPTrace("api.request", { path, method: (options.method || "GET").toUpperCase(), ok: false, error: err && err.name === "AbortError" ? "timeout" : "network", ms: Math.round(performance.now() - t0) }); throw new Error(err && err.name === "AbortError" ? "Request timed out" : (t("requestFailed"))); }
   clearTimeout(timer);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || t("requestFailed"));
+  // 遥测:记录客户端关键请求(播放/搜索),带请求参数与耗时,便于排查音质切换等问题
+  if (window.ATPTrace && /player|search/i.test(path)) {
+    let params = null;
+    try {
+      const body = JSON.parse(options.body || "{}");
+      params = { quality: body.quality, atmos: body.atmos, drm: body.drm, aac_only: body.aac_only, track_id: body.track_id, resource: body.resource };
+    } catch (_) { /* GET 或无 body */ }
+    window.ATPTrace("api.request", { path, method: (options.method || "GET").toUpperCase(), ok, params, ms: Math.round(performance.now() - t0) });
+  }
   return data;
 }
 const icon = () => lucide.createIcons();
