@@ -361,3 +361,16 @@ body.no-images img { display: none !important; }
   background: transparent;
   flex: 0 0 auto;
 }
+
+/* ---- 实时频谱:覆盖在封面图底部,播放时显示 ---- */
+.now-spectrum {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  width: 100%; height: 28%;
+  pointer-events: none;
+  opacity: .85;
+  /* 底部淡入,避免与封面/歌词生硬拼接 */
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.9), rgba(0,0,0,0));
+          mask-image: linear-gradient(to top, rgba(0,0,0,.9), rgba(0,0,0,0));
+}
+.now-art .cover-lyrics:not([hidden]) ~ .now-spectrum { display: none; } /* 歌词可见时隐藏,避免叠加 */

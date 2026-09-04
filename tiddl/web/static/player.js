@@ -1145,7 +1145,7 @@ seekEl.addEventListener("change", (e) => {
   paintRange(e.target);
 });
 seekEl.addEventListener("pointerup", () => { scrubbing = false; if (Number.isFinite(audio.duration)) audio.currentTime = audio.duration * Number(seekEl.value) / 1000; });
-audio.addEventListener("timeupdate",()=>{$("#elapsed").textContent=formatTime(audio.currentTime);$("#duration").textContent=formatTime(audio.duration);if(Number.isFinite(audio.duration)){if(!scrubbing){$("#seek").value=audio.currentTime/audio.duration*1000;paintRange($("#seek"));}if(audio.duration-audio.currentTime<10)preloadNext();}highlightLyrics();}); audio.addEventListener("play",()=>{updatePlayButton();state.streamRetries=0;if(state.tapToPlay){state.tapToPlay=false;statusApi=statusApiPending||"";statusApiPending="";renderStatusLine();}showError();});audio.addEventListener("pause",updatePlayButton);audio.addEventListener("ended",()=>{if(window.ATPTrace)window.ATPTrace("audio.ended",{ct:audio.currentTime});nextTrack();});audio.addEventListener("stalled",()=>{if(window.ATPTrace)window.ATPTrace("audio.stalled",{ct:audio.currentTime});});audio.addEventListener("waiting",()=>{if(window.ATPTrace)window.ATPTrace("audio.waiting",{ct:audio.currentTime});});audio.addEventListener("error",()=>{if(window.ATPTrace)window.ATPTrace("audio.error",{ct:audio.currentTime,code:audio.error&&audio.error.code});});
+audio.addEventListener("timeupdate",()=>{$("#elapsed").textContent=formatTime(audio.currentTime);$("#duration").textContent=formatTime(audio.duration);if(Number.isFinite(audio.duration)){if(!scrubbing){$("#seek").value=audio.currentTime/audio.duration*1000;paintRange($("#seek"));}if(audio.duration-audio.currentTime<10)preloadNext();}highlightLyrics();}); audio.addEventListener("play",()=>{updatePlayButton();state.streamRetries=0;if(state.tapToPlay){state.tapToPlay=false;statusApi=statusApiPending||"";statusApiPending="";renderStatusLine();}showError();spectrumShow(true);});audio.addEventListener("pause",()=>{updatePlayButton();spectrumShow(false);});audio.addEventListener("ended",()=>{if(window.ATPTrace)window.ATPTrace("audio.ended",{ct:audio.currentTime});nextTrack();});audio.addEventListener("stalled",()=>{if(window.ATPTrace)window.ATPTrace("audio.stalled",{ct:audio.currentTime});});audio.addEventListener("waiting",()=>{if(window.ATPTrace)window.ATPTrace("audio.waiting",{ct:audio.currentTime});});audio.addEventListener("error",()=>{if(window.ATPTrace)window.ATPTrace("audio.error",{ct:audio.currentTime,code:audio.error&&audio.error.code});});
 // 播放失败处理:最多重试 2 次(每次重新 resolve 拿新 URL);直连失败自动回退后端代理流(服务器端拉取,无跨域限制)
 async function streamFailed() {
   if((state.streamRetries||0)>=2){state.streamRetries=0;showError(t("streamFailed"));return;}
@@ -1356,4 +1356,71 @@ if (window.ATPAuth && window.ATPAuth.ready) { window.ATPAuth.ready.then(prewarmW
   // 暴露给全局:播放/导航等需要主动收起抽屉时调用
   window.ATPCloseDrawers = () => { setDrawer("library", false); setDrawer("lyrics", false); };
 })();
+
+// ---- 实时频谱(封面叠加):AnalyserNode 读取解码后 PCM 频域,RAF 绘制 ----
+// v2 Widevine/MSE 与 v1 直连都适用(分析的是解码后的音频流)。
+let _spectrumCtx = null; // AudioContext(懒初始化;需用户手势后 resume)
+let _spectrumAnalyser = null;
+let _spectrumRaf = 0;
+let _spectrumOn = false;
+function spectrumSetup() {
+  if (_spectrumAnalyser) return true;
+  try {
+    if (typeof AudioContext === "undefined" && typeof webkitAudioContext === "undefined") return false;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    _spectrumCtx = new AC();
+    // createMediaElementSource 每个 audio 元素只能调用一次:只在此处建一次
+    const src = _spectrumCtx.createMediaElementSource(audio);
+    _spectrumAnalyser = _spectrumCtx.createAnalyser();
+    _spectrumAnalyser.fftSize = 256;
+    _spectrumAnalyser.smoothingTimeConstant = 0.8;
+    src.connect(_spectrumAnalyser);
+    _spectrumAnalyser.connect(_spectrumCtx.destination);
+    return true;
+  } catch (e) { if (window.ATPTrace) window.ATPTrace("spectrum.setup", { error: String(e && e.message || e) }); return false; }
+}
+function spectrumDraw() {
+  const canvas = $("#nowSpectrum");
+  if (!canvas || !_spectrumAnalyser) return;
+  if (!_spectrumOn || audio.paused) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const data = new Uint8Array(_spectrumAnalyser.frequencyBinCount);
+  _spectrumAnalyser.getByteFrequencyData(data);
+  ctx.clearRect(0, 0, w, h);
+  const bars = 48;
+  const bw = w / bars;
+  // 从低频到高频取对数分布的采样点(人耳感知更均匀)
+  for (let i = 0; i < bars; i++) {
+    const idx = Math.floor(Math.pow(i / bars, 1.4) * (data.length - 1));
+    const v = data[idx] / 255;
+    const bh = Math.max(1, v * h * 0.92);
+    // 峰值更高的条用更亮的主题色
+    const alpha = 0.28 + v * 0.72;
+    ctx.fillStyle = `rgba(54,224,161,${alpha})`; // var(--accent) 的 RGB
+    ctx.fillRect(i * bw + bw * 0.18, h - bh, bw * 0.64, bh);
+  }
+  _spectrumRaf = requestAnimationFrame(spectrumDraw);
+}
+function spectrumShow(on) {
+  _spectrumOn = on;
+  const canvas = $("#nowSpectrum");
+  if (!canvas) return;
+  if (on) {
+    if (!spectrumSetup()) return;
+    canvas.hidden = false;
+    if (_spectrumCtx && _spectrumCtx.state === "suspended") _spectrumCtx.resume().catch(() => {});
+    if (!_spectrumRaf) _spectrumRaf = requestAnimationFrame(spectrumDraw);
+  } else {
+    canvas.hidden = true;
+    if (_spectrumRaf) { cancelAnimationFrame(_spectrumRaf); _spectrumRaf = 0; }
+  }
+}
+
+// 测试/调试钩子:暴露频谱开关与状态(闭包内函数,外部无法直接访问)
+window.__spectrumTest = {
+  show: (on) => spectrumShow(on),
+  state: () => ({ on: _spectrumOn, hasAnalyser: !!_spectrumAnalyser, raf: _spectrumRaf, ctxState: _spectrumCtx ? _spectrumCtx.state : null }),
+};
+
 })();
