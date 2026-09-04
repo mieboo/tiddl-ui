@@ -344,3 +344,20 @@ body:not([data-route="player"]) .player-drawer-backdrop { display: none !importa
 
 /* ---- 省流量模式:禁止图片(不再请求任何图片,img 已不设 src,此处兜底隐藏) ---- */
 body.no-images img { display: none !important; }
+
+/* ---- Explicit [E] 徽标:歌曲卡片标题内联,醒目但不抢戏 ---- */
+.explicit-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: .5px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  vertical-align: 1px;
+  background: transparent;
+  flex: 0 0 auto;
+}

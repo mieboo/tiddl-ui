@@ -112,14 +112,18 @@ def browser_prefers_aac(ua: str | None) -> bool:
     return is_firefox or is_safari
 
 
-def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "AACLC") -> dict:
+def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "AACLC", aac_only: bool = False) -> dict:
     """Fetch the v2 trackManifest (MPEG-DASH) and return a playable DRM bundle.
 
-    formats: 单个 "AACLC"/"FLAC"/"FLAC_HIRES"/"HEAACV1",或多个组成的列表。
-    Tidal 一次请求多个 formats 时会返回其中「最优可用」的那个(如请求
-    [FLAC_HIRES, FLAC, AACLC] 而曲目只有 FLAC,则返回 FLAC,44100,16)。
+    formats: 用户期望档位的降级链,如 ["FLAC_HIRES","FLAC","AACLC","HEAACV1"]。
+    恒请求全部 formats + adaptive=true,服务端返回该曲目全部可用 Representation;
+    本地按 fmt_list 优先级选「用户所选档」的最优 Rep(选 LOW 得 HE-AAC,选 Hi-Res 得 FLAC_HIRES)。
     The init/media URLs are CloudFront-signed and can be fetched by the browser
     directly (plain GET, no custom headers) — zero server bandwidth.
+
+    重要(HAR 实测 2026-09-04):
+    1) MPD Representation 带 bandwidth 属性 = 该档真实码率(bps),无损也有(如 FLAC 44.1/16 ≈ 941436)。
+    2) 恒请求全 formats + adaptive=true → 缓存键与所选档位无关,切档命中同一缓存(限流规避)。
     """
     import base64
     import html as html_mod
@@ -135,23 +139,30 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
         "Referer": "https://tidal.com/",
         "User-Agent": DRM_UA,
     }
+    # 恒请求全量 formats + adaptive=true(实测 2026-09-04):
+    # adaptive=true → 服务端返回该曲目全部可用 Representation(菜单枚举+选档);
+    # formats 参数 = 期望档位的降级链(如 ["FLAC_HIRES","FLAC","AACLC","HEAACV1"]),
+    # 仅用于「从全档里选用户所选档」,不参与请求构造。
+    # 缓存键与所选档位无关 → 切档命中同一缓存,零新增 Tidal 请求(限流规避核心)。
+    ALL_V2_FORMATS = ["FLAC_HIRES", "FLAC", "AACLC", "HEAACV1"]
     fmt_list = [formats] if isinstance(formats, str) else list(formats)
+    request_formats = ALL_V2_FORMATS
     params = {
-        "adaptive": "true",
+        "adaptive": "true",  # 枚举全部可用档;选档在本地进行
         "manifestType": "MPEG_DASH",
         "uriScheme": "DATA",
         "usage": "PLAYBACK",
     }
-    # Tidal 支持重复 formats 参数(多值),一次返回最优可用档位
+    # Tidal 支持重复 formats 参数(多值)
     import urllib.parse
     query = urllib.parse.urlencode(
         [(k, v) for k, v in params.items()]
-        + [("formats", f) for f in fmt_list]
+        + [("formats", f) for f in request_formats]
     )
-    cache_key = ",".join(fmt_list)
+    # 缓存键只含账号+曲目:恒请求全 formats → 切任意档命中同一缓存
+    cache_key = "ALL"
     # 短缓存:同一账号同一曲目短窗口内重复播放不再请求 Tidal(更快更稳,减少限流)。
-    # 缓存键必须含账号与 formats:不同账号的 DRM manifest/PSSH 不同,跨账号复用会导致 license 失败;
-    # 不同 formats(AACLC/FLAC)的 codec/mime/分段不同,混用会让 FLAC 请求命中 AACLC 缓存(音质变 320kbps)。
+    # 缓存键必须含账号:不同账号的 DRM manifest/PSSH 不同,跨账号复用会导致 license 失败。
     now = time.time()
     cached = _v2_manifest_cache.get((account_id, track_id, cache_key))
     if cached and now - cached[0] < TIDAL_MANIFEST_CACHE_TTL:
@@ -197,11 +208,13 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
     codec = mime_type = None
     sample_rate = None
     bit_depth = None
+    bandwidth = None  # MPD bandwidth(bps)=该档真实码率,无损也有(HAR 实测)
     actual_format = None
     duration_s = None
     segment_count = 0
-    # 收集全部 Representation:多 formats 请求时 Tidal 返回多个(如 FLAC_HIRES/FLAC/AACLC/HEAACV1),
-    # 必须按请求优先级(fmt_list 顺序)选「最优」的那个,而不是取最后一个。
+    # 收集 Representation:adaptive=true 时服务端返回全部可用档(HAR 实测),
+    # 选档按用户期望的降级链(fmt_list)优先 —— 选 LOW 得 HE-AAC,选 Hi-Res 得 FLAC_HIRES,
+    # 而非恒选最优档。同时记录全部 available_formats 供菜单校准。
     reps = list(root.iter("{urn:mpeg:dash:schema:mpd:2011}Representation"))
 
     def _rep_priority(rep) -> int:
@@ -211,11 +224,22 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
         except ValueError:
             return len(fmt_list)
 
-    best_rep = min(reps, key=_rep_priority) if reps else None
+    # aac_only(Firefox/Safari 等无法解码 FLAC-in-MSE)时,过滤掉 FLAC 档,
+    # 只从 AAC 档里选最优 —— 仍在同一份缓存 manifest 内选择,不新增请求。
+    candidate_reps = reps
+    if aac_only:
+        candidate_reps = [
+            rep
+            for rep in reps
+            if (rep.get("id") or "").split(",")[0].strip() in ("AACLC", "HEAACV1")
+        ]
+    best_rep = min(candidate_reps, key=_rep_priority) if candidate_reps else None
     if best_rep is not None:
         codec = best_rep.get("codecs")
         if best_rep.get("audioSamplingRate"):
             sample_rate = int(best_rep.get("audioSamplingRate"))
+        if best_rep.get("bandwidth"):
+            bandwidth = int(best_rep.get("bandwidth"))
         rep_id = best_rep.get("id") or ""
         if rep_id:
             actual_format = rep_id.split(",")[0].strip()
@@ -259,9 +283,33 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
         "duration_s": duration_s,
         "sample_rate": sample_rate,
         "bit_depth": bit_depth,
-        # 请求时想尝试的档位顺序 + 实际拿到的格式(Rep id 首个逗号前,如 FLAC_HIRES)
+        "bandwidth": bandwidth,  # MPD 真实码率(bps),无损也有(HAR 实测)
+        # 用户期望档位的降级链(选档用,不参与请求构造)
         "requested_formats": fmt_list,
         "format": actual_format or cache_key,
+        # 曲目全部可用档位(菜单校准):adaptive=true 时 reps 含全部档
+        "available_formats": sorted(
+            {
+                (rep.get("id") or "").split(",")[0].strip()
+                for rep in reps
+                if (rep.get("id") or "").strip()
+            },
+            key=lambda f: ALL_V2_FORMATS.index(f) if f in ALL_V2_FORMATS else 99,
+        ),
+        # 每档真实码率映射 format → kbps(菜单显示;同 format 取最高 bandwidth)
+        "format_bandwidths": {
+            fmt: max(
+                int(r.get("bandwidth") or 0)
+                for r in reps
+                if (r.get("id") or "").split(",")[0].strip() == fmt
+            )
+            // 1000
+            for fmt in {
+                (rep.get("id") or "").split(",")[0].strip()
+                for rep in reps
+                if (rep.get("id") or "").strip()
+            }
+        },
     }
     _v2_manifest_cache[(account_id, track_id, cache_key)] = (time.time(), bundle)
     return bundle

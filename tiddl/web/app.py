@@ -47,6 +47,7 @@ from tiddl.web.users import (
 from tiddl.web.giveaway import GiveawayStore
 from tiddl.web.player import (
     _artist_dicts,
+    calibrate_qualities,
     cover_is_bright,
     format_duration,
     image_url,
@@ -356,7 +357,12 @@ def resolve_player_stream(track_id: str, quality: str, account_id: str, allow_at
             # 只有 Atmos 流:优先用 v2 AAC-LC DASH 直连(零带宽,浏览器 MSE 播放),
             # 仅当 v2 不可用时才回退到后端 ffmpeg 转码。
             try:
-                drm_bundle = v2_drm_manifest(track_id, account_id, v2_formats_for_quality(quality, aac_only=aac_only))
+                drm_bundle = v2_drm_manifest(
+                    track_id,
+                    account_id,
+                    v2_formats_for_quality(quality, aac_only=aac_only),
+                    aac_only=aac_only,
+                )
                 if drm_bundle:
                     session = PlayerSession(
                         id=uuid4().hex,
@@ -1328,10 +1334,17 @@ async def resolve_player(request: PlayerResolveRequest, user: User = Depends(get
             track = api.get_track(request.track_id)
             if not track.allowStreaming or not track.streamReady:
                 raise ValueError("This track is not available for streaming.")
-            # v2 格式按音质选择:HI_RES_LOSSLESS 请求 FLAC_HIRES(真 Hi-Res,如 192k/24),
-            # LOSSLESS 请求 FLAC,AAC 走 AACLC/HEAACV1;按 v2_formats_for_quality 的降级链自动回退。
+            # v2 格式:恒请求全量 formats + adaptive=true(HAR 实测),
+            # 服务端返回该曲目全部可用档;本地按用户期望档位的降级链选档
+            # (选 Hi-Res → FLAC_HIRES,选 LOSSLESS → FLAC,选 LOW → HE-AAC)。
+            # 缓存键与所选音质无关 → 切档命中同一缓存,零新增 Tidal 请求。
+            # aac_only(Firefox 等)时从同一 manifest 里只选 AAC 档,不新增请求。
             bundle = await asyncio.to_thread(
-                v2_drm_manifest, request.track_id, account_id, v2_formats_for_quality(request.quality, aac_only=aac_only)
+                v2_drm_manifest,
+                request.track_id,
+                account_id,
+                v2_formats_for_quality(request.quality, aac_only=aac_only),
+                aac_only,
             )
             lyrics = None
             try:
@@ -1350,6 +1363,24 @@ async def resolve_player(request: PlayerResolveRequest, user: User = Depends(get
                 resolved_quality = "LOW"
             else:
                 resolved_quality = "HIGH"
+            # 菜单校准:用 v2 实际可用档位列表修正元数据初判(如 Atmos 版无 Hi-Res)
+            available_qualities = calibrate_qualities(
+                t.get("qualities") or [], bundle.get("available_formats") or [fmt]
+            )
+            # 码率:优先用 MPD 的 bandwidth 属性(HAR 实测,无损也有真实码率,如 FLAC≈900kbps);
+            # 缺失时回退查表(有损 96/320)。
+            mpd_bitrate_kbps = (
+                round(bundle["bandwidth"] / 1000) if bundle.get("bandwidth") else None
+            )
+            if mpd_bitrate_kbps:
+                bitrate = mpd_bitrate_kbps
+            else:
+                bitrate = StreamSpec.for_quality(
+                    resolved_quality,
+                    "DOLBY_ATMOS" if request.allow_atmos else "STEREO",
+                    bundle.get("codec", ""),
+                    bundle.get("mime_type", ""),
+                ).bitrate_kbps
             return {
                 "session_id": None,
                 "stream_url": None,
@@ -1361,12 +1392,10 @@ async def resolve_player(request: PlayerResolveRequest, user: User = Depends(get
                 "audio_mode": "DOLBY_ATMOS" if request.allow_atmos else "STEREO",
                 "bit_depth": bundle.get("bit_depth"),
                 "sample_rate": bundle.get("sample_rate"),
-                "bitrate": StreamSpec.for_quality(
-                    resolved_quality,
-                    "DOLBY_ATMOS" if request.allow_atmos else "STEREO",
-                    bundle.get("codec", ""),
-                    bundle.get("mime_type", ""),
-                ).bitrate_kbps,
+                "bitrate": bitrate,
+                "available_qualities": available_qualities,
+                # 每档真实码率映射 format → kbps(菜单显示;无损也有,如 FLAC≈900kbps)
+                "format_bandwidths": bundle.get("format_bandwidths") or {},
                 "transcoded": False,
                 "cover_bright": (False if request.no_images else await asyncio.to_thread(cover_is_bright, t["cover"])),
                 "track": t,
@@ -1411,6 +1440,10 @@ async def resolve_player(request: PlayerResolveRequest, user: User = Depends(get
         "bitrate": StreamSpec.for_quality(
             session.quality, session.audio_mode, session.codec, session.mime_type
         ).bitrate_kbps,
+        # 菜单校准:v1 实际返回档(如 44.1/16 LOSSLESS)说明无 Hi-Res → 菜单隐藏
+        "available_qualities": calibrate_qualities(
+            track.get("qualities") or [], session.quality
+        ),
         "transcoded": session.transcoded,
         "cover_bright": cover_bright,
         "track": track,

@@ -135,6 +135,46 @@ def player_quality_tiers(quality: str) -> list[str]:
         return ["HIGH", "LOW"]
 
 
+# v2 实际 format(服务端单档) → 前端档位(不含 Atmos 折叠)
+V2_FORMAT_TO_QUALITY = {
+    "FLAC_HIRES": "HI_RES_LOSSLESS",
+    "FLAC": "LOSSLESS",
+    "AACLC": "HIGH",
+    "HEAACV1": "LOW",
+}
+
+
+def calibrate_qualities(meta_qualities: list[str], v2_formats: list[str] | str | None) -> list[str]:
+    """用 v2 真实能力校准菜单(方案 A:播放后变准)。
+
+    meta_qualities: _track_qualities 元数据初判(可能含 _ATMOS 复合档)
+    v2_formats: v2 manifest(adaptive=true)返回的全部 format 列表,
+                如 ["FLAC_HIRES","FLAC","AACLC","HEAACV1"];单字符串兼容旧调用。
+
+    规则(双向校准:不漏能播的、不显不能播的):
+    1. v2 能播的档 → 加入菜单(v2 是播放主通道,能力以它为准)
+    2. v2 无 FLAC_HIRES → 无 HI_RES(v1 名义有但实际只给 44.1/16)
+    3. 非 Atmos-only(元数据含纯立体声档)时,v1 档位作为兜底保留
+    """
+    if not v2_formats:
+        return meta_qualities
+    if isinstance(v2_formats, str):
+        v2_formats = [v2_formats]
+    order = ["LOW", "HIGH", "LOSSLESS", "HI_RES_LOSSLESS"]
+    # v2 能播的档(播放主通道)
+    v2_tiers = {V2_FORMAT_TO_QUALITY[f] for f in v2_formats if f in V2_FORMAT_TO_QUALITY}
+    # 元数据里的纯立体声档(v1 兜底能力;全是 _ATMOS 复合 → Atmos-only,无 v1 兜底)
+    plain_meta = {q for q in meta_qualities if q in order}
+    atmos_only = not plain_meta
+    tiers = set(v2_tiers)
+    if not atmos_only:
+        tiers |= plain_meta
+    # HI_RES 仅 v2 提供(v1 名义有实际无)
+    if "FLAC_HIRES" not in v2_formats:
+        tiers.discard("HI_RES_LOSSLESS")
+    return [t for t in order if t in tiers]
+
+
 # 明文/直连门禁:判定 Tidal 流 manifest 是否受 DRM 保护。
 # 所有「浏览器直接保存/播放明文流」的路径必须经过此判定,避免把加密流当明文下发。
 # 唯一可信来源是 manifest 的 encryptionType;local transcoded 产物由构造方保证 NONE。

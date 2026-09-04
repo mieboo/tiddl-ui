@@ -408,3 +408,58 @@ def test_detect_download_options_exposes_supported_choices():
     assert specs[0]["choices"] == ["low", "normal", "high", "max"]
     assert specs[2]["choices"] == ["none", "allow", "only"]
     assert specs[3]["choices"] == ["none", "allow", "only"]
+
+
+def test_calibrate_qualities_bidirectional_v2_capability():
+    """方案 A 菜单校准:双向——v2 能播的加入、不能播的移除(纯档语义)。
+
+    - v2 是播放主通道:其可用 formats 决定菜单下限(不漏能播的)
+    - v2 无 FLAC_HIRES → 无 HI_RES(不显播不了的)
+    - 非 Atmos-only 时 v1 档位兜底保留
+    """
+    from tiddl.web.player import calibrate_qualities
+
+    meta = ["LOW", "HIGH", "LOSSLESS", "HI_RES_LOSSLESS"]
+    atmos_meta = ["LOSSLESS_ATMOS", "HI_RES_LOSSLESS_ATMOS"]
+
+    # 普通立体声:v2 全档 → 全保留
+    assert calibrate_qualities(meta, ["FLAC_HIRES", "FLAC", "AACLC", "HEAACV1"]) == meta
+    # v2 单字符串兼容
+    assert calibrate_qualities(meta, "FLAC_HIRES") == meta
+
+    # v2 无 Hi-Res(Atmos 版) → 移除 HI_RES,保留 v2 能播的
+    assert calibrate_qualities(meta, ["FLAC", "AACLC", "HEAACV1"]) == ["LOW", "HIGH", "LOSSLESS"]
+    assert calibrate_qualities(meta, "FLAC") == ["LOW", "HIGH", "LOSSLESS"]
+    assert calibrate_qualities(meta, "AACLC") == ["LOW", "HIGH", "LOSSLESS"]
+    # v1 兜底路径(传 session.quality) → Hi-Res 移除
+    assert calibrate_qualities(meta, "LOSSLESS") == ["LOW", "HIGH", "LOSSLESS"]
+
+    # Atmos-only 元数据只有复合档,但 v2 能播 AAC/FLAC → 补回纯档(v2 主通道)
+    assert calibrate_qualities(atmos_meta, ["FLAC", "AACLC", "HEAACV1"]) == ["LOW", "HIGH", "LOSSLESS"]
+    assert calibrate_qualities(atmos_meta, "FLAC") == ["LOW", "HIGH", "LOSSLESS"]
+    # v2 返回 FLAC_HIRES → Atmos 也有 Hi-Res,纯档全保留
+    assert calibrate_qualities(atmos_meta, "FLAC_HIRES") == ["LOW", "HIGH", "LOSSLESS", "HI_RES_LOSSLESS"]
+
+    # v2 完全不可用(v1 兜底) → 返回元数据原样
+    assert calibrate_qualities(meta, None) == meta
+    assert calibrate_qualities(meta, "") == meta
+
+
+def test_calibrate_qualities_bidirectional_v2_capability():
+    """方案 A 菜单校准:双向——v2 能播的加入、不能播的移除(纯档语义)。"""
+    from tiddl.web.player import calibrate_qualities
+
+    # 普通立体声:v2 全档 → 全保留
+    meta = ["LOW", "HIGH", "LOSSLESS", "HI_RES_LOSSLESS"]
+    assert calibrate_qualities(meta, ["FLAC_HIRES", "FLAC", "AACLC", "HEAACV1"]) == meta
+
+    # v2 无 Hi-Res(Atmos 版) → 移除 HI_RES,保留 v2 能播的
+    assert calibrate_qualities(meta, ["FLAC", "AACLC", "HEAACV1"]) == ["LOW", "HIGH", "LOSSLESS"]
+
+    # v2 能力反向:Atmos-only 元数据只有复合档,但 v2 能播 AAC/FLAC → 补回纯档
+    atmos_meta = ["LOSSLESS_ATMOS", "HI_RES_LOSSLESS_ATMOS"]
+    assert calibrate_qualities(atmos_meta, ["FLAC", "AACLC", "HEAACV1"]) == ["LOW", "HIGH", "LOSSLESS"]
+
+    # v2 完全不可用(v1 兜底) → 返回元数据原样
+    assert calibrate_qualities(meta, None) == meta
+    assert calibrate_qualities(meta, "") == meta
