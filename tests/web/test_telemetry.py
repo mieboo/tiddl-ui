@@ -89,3 +89,51 @@ class TestWriteAndQuery:
     def test_new_device_id_unique(self):
         a, b = tel.new_device_id(), tel.new_device_id()
         assert a and b and a != b
+
+
+class TestFeatureStats:
+    def test_aggregates_by_account_device_feature(self):
+        now = time.time()
+        tel.ingest_batch("alice", [
+            {"t": now, "evt": "play.start", "data": {}},
+            {"t": now, "evt": "play.start", "data": {}},
+            {"t": now, "evt": "search.done", "data": {}},
+        ], device_id="devA")
+        tel.ingest_batch("alice", [
+            {"t": now, "evt": "play.start", "data": {}},
+        ], device_id="devB")
+        tel.ingest_batch("bob", [
+            {"t": now, "evt": "auth.login", "data": {}},
+        ], device_id="devC")
+
+        rows = tel.feature_stats()
+        by = {(r["account"], r["device_id"], r["evt"]): r for r in rows}
+        assert by[("alice", "devA", "play.start")]["count"] == 2
+        assert by[("alice", "devA", "search.done")]["count"] == 1
+        assert by[("alice", "devB", "play.start")]["count"] == 1
+        assert by[("bob", "devC", "auth.login")]["count"] == 1
+
+    def test_feature_label_mapping(self):
+        now = time.time()
+        tel.ingest_batch("alice", [{"t": now, "evt": "play.start", "data": {}}], device_id="d")
+        rows = tel.feature_stats(account="alice")
+        assert rows[0]["label"] == "播放"  # EVENT_FEATURE 映射
+        tel.ingest_batch("alice", [{"t": now, "evt": "custom.xyz", "data": {}}], device_id="d")
+        rows = tel.feature_stats(account="alice")
+        custom = [r for r in rows if r["evt"] == "custom.xyz"][0]
+        assert custom["label"] == "custom.xyz"  # 未映射 → 用事件名
+
+
+class TestTimestampNormalization:
+    def test_ms_timestamp_normalized_to_seconds(self):
+        """前端 t 是毫秒(ms),后端统一存秒(s)。"""
+        ms = time.time() * 1000
+        n = tel.ingest_batch("alice", [
+            {"t": ms, "evt": "play.start", "data": {}},
+            {"t": time.time(), "evt": "search.done", "data": {}},  # 已是秒
+        ], device_id="d")
+        assert n == 2
+        path = tel._current_file("alice")
+        evs = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+        assert abs(evs[0]["ts"] - time.time()) < 2  # ms 归一化到秒
+        assert abs(evs[1]["ts"] - time.time()) < 2  # 秒原样保留

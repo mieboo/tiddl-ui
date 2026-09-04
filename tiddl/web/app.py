@@ -98,6 +98,7 @@ from tiddl.web.state import (
 )
 from tiddl.web.telemetry import (
     distinct_devices,
+    feature_stats,
     ingest_batch,
     query_telemetry,
     telemetry_throttled,
@@ -1017,6 +1018,19 @@ async def admin_telemetry(
     )
     devices = distinct_devices(account)
     return {"events": events, "devices": devices, "count": len(events)}
+
+
+@app.get("/api/admin/telemetry/stats")
+async def admin_telemetry_stats(
+    account: str | None = None,
+    device: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
+    _user: User = Depends(require_admin),
+) -> dict:
+    """行为统计:按账号/设备聚合功能使用次数(谁用了什么功能多少次)。"""
+    rows = feature_stats(account=account, device_id=device, since=since, until=until)
+    return {"stats": rows, "count": len(rows)}
 
 
 @app.get("/api/admin/telemetry/devices")

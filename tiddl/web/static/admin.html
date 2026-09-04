@@ -64,6 +64,25 @@
         <div id="bandwidthUsers" class="bandwidth-users"></div>
       </div>
 
+      <div class="preview-specs" style="margin:24px 0 10px">
+        <h3 style="margin:0">Usage &amp; telemetry</h3>
+        <div class="telemetry-filters" style="display:flex;gap:8px;align-items:center;margin-left:auto">
+          <select id="telemetryAccount" class="telemetry-select" title="Filter by account"><option value="">All accounts</option></select>
+          <select id="telemetryDevice" class="telemetry-select" title="Filter by device"><option value="">All devices</option></select>
+          <button class="icon-button bordered" type="button" id="telemetryRefresh" title="Refresh telemetry"><i data-lucide="refresh-cw"></i></button>
+        </div>
+      </div>
+      <div id="telemetryPanel" class="monitor-grid account-empty">
+        <div class="monitor-card">
+          <h4>Behavior stats</h4>
+          <div id="telemetryStats"><div class="bandwidth-empty">Loading…</div></div>
+        </div>
+        <div class="monitor-card monitor-wide">
+          <h4>Event stream</h4>
+          <div id="telemetryEvents"><div class="bandwidth-empty">Loading…</div></div>
+        </div>
+      </div>
+
       <div class="preview-specs" style="margin:18px 0 10px">
         <h3 style="margin:0">Platform users</h3>
       </div>

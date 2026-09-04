@@ -92,8 +92,12 @@ def ingest_batch(account: str | None, events: list[dict],
     for e in events or []:
         if not isinstance(e, dict) or not e.get("evt"):
             continue
+        ts = float(e.get("t") or time.time())
+        # 前端 t 是毫秒(ms),后端统一存秒(s):ms 特征值 > 1e12
+        if ts > 1e12:
+            ts = ts / 1000.0
         event = {
-            "ts": float(e.get("t") or time.time()),
+            "ts": ts,
             "account": account or "unknown",
             "device_id": str(e.get("device_id") or device_id or ""),
             "session_id": str(e.get("session_id") or session_id or ""),
@@ -180,3 +184,51 @@ def distinct_devices(account: str | None = None) -> list[dict]:
         agg[key]["count"] += 1
         agg[key]["last_ts"] = max(agg[key]["last_ts"], ev.get("ts"))
     return sorted(agg.values(), key=lambda d: d["last_ts"] or 0, reverse=True)
+
+
+# 行为统计:把遥测事件归类为「用户功能」,便于管理员查看"谁用了什么功能多少次"。
+# 不在表内的事件仍计入,label 用事件名本身。
+EVENT_FEATURE: dict[str, str] = {
+    "session.start": "App 启动",
+    "auth.login": "登录",
+    "auth.logout": "登出",
+    "play.start": "播放",
+    "play.resolve": "解析流",
+    "play.open": "打开流",
+    "play.error": "播放失败",
+    "quality.select": "切换音质",
+    "search.done": "搜索",
+    "queue.add_track": "加入队列",
+    "queue.remove_track": "移除队列",
+    "queue.clear": "清空队列",
+    "queue.shuffle": "随机播放",
+    "queue.repeat": "循环模式",
+    "download.request": "下载请求",
+    "fav.add": "收藏",
+    "fav.remove": "取消收藏",
+    "follow.unfollow": "关注/取关",
+    "page.visibility": "页面切换",
+    "error.window": "页面错误",
+    "console.error": "运行时告警",
+}
+
+
+def feature_stats(*, account: str | None = None, device_id: str | None = None,
+                  since: float | None = None, until: float | None = None) -> list[dict]:
+    """行为统计:按账号/设备聚合功能使用次数与最后使用时间。
+
+    返回 [{account, device_id, feature, label, count, last_ts}],按 account,count 降序。
+    """
+    agg: dict[tuple, dict] = {}
+    for ev in query_telemetry(account=account, device_id=device_id,
+                              since=since, until=until, limit=100000):
+        evt = str(ev.get("evt") or "")
+        key = (ev.get("account"), ev.get("device_id"), evt)
+        if key not in agg:
+            agg[key] = {"account": key[0], "device_id": key[1],
+                        "evt": evt, "label": EVENT_FEATURE.get(evt, evt),
+                        "count": 0, "last_ts": ev.get("ts")}
+        agg[key]["count"] += 1
+        agg[key]["last_ts"] = max(agg[key]["last_ts"], ev.get("ts"))
+    rows = sorted(agg.values(), key=lambda r: (r["account"], -r["count"]))
+    return rows

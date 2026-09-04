@@ -292,7 +292,7 @@
 
   async function refreshAll() {
     try {
-      await Promise.all([refreshUsers(), refreshAccounts(), refreshFacts(), refreshMonitor(), refreshBandwidth()]);
+      await Promise.all([refreshUsers(), refreshAccounts(), refreshFacts(), refreshMonitor(), refreshBandwidth(), refreshTelemetry()]);
     } catch (error) {
       // 会话失效则退回登录
       if (String(error.message).toLowerCase().includes("sign in") || String(error.message).toLowerCase().includes("not signed")) {
@@ -414,6 +414,75 @@
       await refreshBandwidth();
     } catch (error) { alert(error.message); }
   });
+
+  // ---- 遥测面板:账号/设备筛选 + 行为统计 + 事件流 ---------------------------
+  function fmtTime(ts) {
+    if (!ts) return "—";
+    return new Date(Number(ts) * 1000).toLocaleString();
+  }
+
+  async function refreshTelemetry() {
+    try {
+      const acct = $("telemetryAccount").value || "";
+      const dev = $("telemetryDevice").value || "";
+      const q = new URLSearchParams();
+      if (acct) q.set("account", acct);
+      if (dev) q.set("device", dev);
+      const [statsRes, eventsRes, devicesRes] = await Promise.all([
+        api(`/api/admin/telemetry/stats?${q}`),
+        api(`/api/admin/telemetry?${q}&limit=100`),
+        api("/api/admin/telemetry/devices"),
+      ]);
+
+      // 账号/设备下拉(仅首次或列表变化时重建,保留当前选择)
+      const acctSel = $("telemetryAccount");
+      const devSel = $("telemetryDevice");
+      const accounts = [...new Set((devicesRes.devices || []).map((d) => d.account))];
+      const accountHtml = `<option value="">All accounts</option>` + accounts.map((a) => `<option value="${esc(a)}" ${a === acct ? "selected" : ""}>${esc(a)}</option>`).join("");
+      if (acctSel.innerHTML !== accountHtml) acctSel.innerHTML = accountHtml;
+      const devices = (devicesRes.devices || []).filter((d) => !acct || d.account === acct);
+      const deviceHtml = `<option value="">All devices</option>` + devices.map((d) => `<option value="${esc(d.device_id)}" ${d.device_id === dev ? "selected" : ""}>${esc((d.device_id || "?").slice(0, 8))}… (${d.count})</option>`).join("");
+      if (devSel.innerHTML !== deviceHtml) devSel.innerHTML = deviceHtml;
+
+      // 行为统计:按账号/设备/功能聚合
+      const stats = statsRes.stats || [];
+      $("telemetryStats").innerHTML = stats.length ? `
+        <table class="monitor-table">
+          <thead><tr><th>Account</th><th>Device</th><th>Feature</th><th class="num">Count</th><th>Last</th></tr></thead>
+          <tbody>${stats.slice(0, 60).map((s) => `
+            <tr>
+              <td>${esc(s.account)}</td>
+              <td class="mono">${esc((s.device_id || "?").slice(0, 8))}…</td>
+              <td>${esc(s.label)}</td>
+              <td class="num">${s.count}</td>
+              <td class="qr-muted">${fmtTime(s.last_ts)}</td>
+            </tr>`).join("")}</tbody>
+        </table>` : `<div class="bandwidth-empty">No telemetry yet — log in and play on any device.</div>`;
+
+      // 事件流:最近事件(时间/账号/设备/事件/摘要)
+      const evts = eventsRes.events || [];
+      $("telemetryEvents").innerHTML = evts.length ? `
+        <table class="monitor-table">
+          <thead><tr><th>Time</th><th>Account</th><th>Device</th><th>Event</th><th>Detail</th></tr></thead>
+          <tbody>${evts.slice(0, 100).map((e) => {
+            const detail = Object.entries(e.data || {}).filter(([k]) => !["device_id", "session_id"].includes(k)).map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`).join(" ").slice(0, 100);
+            return `<tr>
+              <td class="qr-muted">${fmtTime(e.ts)}</td>
+              <td>${esc(e.account)}</td>
+              <td class="mono">${esc((e.device_id || "?").slice(0, 8))}…</td>
+              <td>${esc(e.evt)}</td>
+              <td class="qr-muted">${esc(detail)}</td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table>` : `<div class="bandwidth-empty">No events for this filter.</div>`;
+    } catch (error) {
+      if (String(error.message).toLowerCase().includes("sign in") || String(error.message).toLowerCase().includes("not signed")) showGate();
+    }
+  }
+
+  $("telemetryRefresh").addEventListener("click", refreshTelemetry);
+  $("telemetryAccount").addEventListener("change", () => { $("telemetryDevice").value = ""; refreshTelemetry(); });
+  $("telemetryDevice").addEventListener("change", refreshTelemetry);
 
   $("monitorRefresh").addEventListener("click", refreshMonitor);
 
