@@ -44,8 +44,8 @@ function formatTime(value) { if(!Number.isFinite(value)) return "0:00"; const m=
 function paintRange(el) { const min=Number(el.min)||0, max=Number(el.max)||1; const pct=(Number(el.value)-min)/(max-min)*100; el.style.setProperty("--range-fill",`${pct}%`); }
 function markOverflowTitles() { requestAnimationFrame(()=>{document.querySelectorAll("[data-tscroll]").forEach(box=>{const text=box.querySelector(".scroll-title-text"); if(!text){box.classList.remove("overflowing");return;} const textW=text.offsetWidth; const over=textW>box.clientWidth+2; box.classList.toggle("overflowing",over); if(over){const px=box.clientWidth-textW; box.style.setProperty("--scroll-distance",`${px}px`); const seconds=Math.min(24,Math.max(1.2,Math.abs(px)/30)); box.style.setProperty("--scroll-duration",`${seconds.toFixed(2)}s`);} });}); }
 function tScroll(text,tag="span",attrs="") { return `<${tag} class="tscroll" data-tscroll ${attrs}><span class="scroll-title-text">${esc(text)}</span></${tag}>`; }
-// 歌曲标题 + Explicit [E] 徽标(卡片标题用;explicit=true 时内联在标题后)
-function explicitTitle(text,explicit,tag="strong") { return `<${tag} class="tscroll" data-tscroll><span class="scroll-title-text">${esc(text)}${explicit?`<span class="explicit-badge">[E]</span>`:""}</span></${tag}>`; }
+// 歌曲标题 + Explicit E 徽标(卡片标题用;explicit=true 时内联在标题后)
+function explicitTitle(text,explicit,tag="strong") { return `<${tag} class="tscroll" data-tscroll><span class="scroll-title-text">${esc(text)}${explicit?`<span class="explicit-badge">E</span>`:""}</span></${tag}>`; }
 // 专辑卡艺人:优先专辑主艺人(album_artists,后端加载专辑时附带),回退到曲目单数主艺人,
 // 最后才回退到曲目复数艺人(可能含演唱者,如 HOYO-MIX 专辑的 Mika Kobayashi)
 function albumArtistsOf(track) {

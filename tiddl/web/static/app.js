@@ -421,7 +421,7 @@ function renderPreview(resources, openIndexes = new Set()) {
         <button class="icon-button preview-remove" type="button" data-remove-resource="${resourceIndex}" title="${t("removeResource")}" aria-label="${t("removeResource")}"><i data-lucide="x"></i></button>
         <i class="preview-chevron" data-lucide="chevron-down"></i>
       </summary>
-      <div class="track-list">${resource.items.map((item, index) => `<div class="track-row"><span class="track-number">${index + 1}</span><div class="track-name"><strong>${escapeHtml(item.title)}${item.explicit ? `<span class="explicit-mark">[E]</span>` : ""}</strong><span>${escapeHtml(item.artist || item.type)}</span></div><span class="track-duration">${escapeHtml(item.duration)}</span></div>`).join("")}</div>
+      <div class="track-list">${resource.items.map((item, index) => `<div class="track-row"><span class="track-number">${index + 1}</span><div class="track-name"><strong>${escapeHtml(item.title)}${item.explicit ? `<span class="explicit-mark">E</span>` : ""}</strong><span>${escapeHtml(item.artist || item.type)}</span></div><span class="track-duration">${escapeHtml(item.duration)}</span></div>`).join("")}</div>
       ${resource.truncated ? `<div class="preview-note">${t("showingFirst")}</div>` : ""}
     </details>`).join("");
   panel.hidden = false;
@@ -448,7 +448,7 @@ function renderSearchResults(results) {
     const added = state.previews.some((resource) => resource.resource === result.resource);
     return `<button class="search-result${added ? " added" : ""}" type="button" data-search-resource="${escapeHtml(result.resource)}" ${added ? "disabled" : ""}>
       ${imgSrc(result.cover) ? `<img class="search-result-cover" src="${escapeHtml(imgSrc(result.cover))}" alt="">` : `<span class="search-result-cover preview-cover-placeholder"><i data-lucide="${result.type === "album" ? "disc-3" : "music"}"></i></span>`}
-      <span class="search-result-copy"><strong>${escapeHtml(result.title)}${result.explicit ? `<span class="explicit-mark">[E]</span>` : ""}</strong><span>${escapeHtml(result.subtitle || result.type)}</span></span>
+      <span class="search-result-copy"><strong>${escapeHtml(result.title)}${result.explicit ? `<span class="explicit-mark">E</span>` : ""}</strong><span>${escapeHtml(result.subtitle || result.type)}</span></span>
       <span class="search-result-type">${added ? t("added") : t(result.type)}</span>
     </button>`;
   }).join("") : `<div class="search-status">${t("noSearchResults")}</div>`;

@@ -345,7 +345,7 @@ body:not([data-route="player"]) .player-drawer-backdrop { display: none !importa
 /* ---- 省流量模式:禁止图片(不再请求任何图片,img 已不设 src,此处兜底隐藏) ---- */
 body.no-images img { display: none !important; }
 
-/* ---- Explicit [E] 徽标:歌曲卡片标题内联,醒目但不抢戏 ---- */
+/* ---- Explicit E 徽标:歌曲卡片标题内联,与歌曲名平齐 ---- */
 .explicit-badge {
   display: inline-block;
   margin-left: 6px;
@@ -357,7 +357,7 @@ body.no-images img { display: none !important; }
   color: var(--accent);
   border: 1px solid var(--accent);
   border-radius: 3px;
-  vertical-align: 1px;
+  vertical-align: middle; /* 与歌曲名垂直居中 */
   background: transparent;
   flex: 0 0 auto;
 }
