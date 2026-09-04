@@ -317,14 +317,17 @@ def v2_drm_manifest(track_id: str, account_id: str, formats: str | list[str] = "
             },
             key=lambda f: ALL_V2_FORMATS.index(f) if f in ALL_V2_FORMATS else 99,
         ),
-        # 每档真实码率映射 format → kbps(菜单显示;同 format 取最高 bandwidth)
+        # 每档真实码率映射 format → kbps(菜单显示;同 format 取最高 bandwidth)。
+        # 取整与后端 bitrate(round)一致,避免菜单 321 vs 按钮 322 的显示不一致。
         "format_bandwidths": {
-            fmt: max(
-                int(r.get("bandwidth") or 0)
-                for r in reps
-                if (r.get("id") or "").split(",")[0].strip() == fmt
+            fmt: round(
+                max(
+                    int(r.get("bandwidth") or 0)
+                    for r in reps
+                    if (r.get("id") or "").split(",")[0].strip() == fmt
+                )
+                / 1000
             )
-            // 1000
             for fmt in {
                 (rep.get("id") or "").split(",")[0].strip()
                 for rep in reps
