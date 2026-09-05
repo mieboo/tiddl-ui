@@ -185,14 +185,14 @@ function spectrumDrawChroma() {
         if (dbs[pc] > frameMax) frameMax = dbs[pc];
       }
     }
-    const RANGE = 14; // 相对最强音符的 dB 窗口:超出即暗
+    const RANGE = 22; // 相对最强音符的 dB 窗口:仅真正突出音符接近满值
     const FLOOR = -75; // 绝对下限:低于此电平视为无信号(静音帧全暗,不出现白块)
     for (let pc = 0; pc < 12; pc++) {
       const rel = dbs[pc] - frameMax; // <=0
       const v = frameMax > FLOOR ? Math.max(0, Math.min(1, (rel + RANGE) / RANGE)) : 0;
       const rowH = H / 12;
       const y = H - (pc + 1) / 12 * H;
-      octx.fillStyle = spectrumColor(Math.pow(v, 1.8)); // gamma 增强对比
+      octx.fillStyle = spectrumColor(Math.pow(v, 2.2)); // gamma 增强对比(主音明显,其余压暗)
       octx.fillRect(W - 1, y, 1, Math.max(1, Math.ceil(rowH)));
     }
   }, w, h);
