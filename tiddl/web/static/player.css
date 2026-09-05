@@ -215,6 +215,7 @@ body[data-route="player"] { overflow: hidden; }
 .now-copy { width: 100%; margin-top: auto; }
 .now-panel .now-copy { margin-top: 20px; }
 .now-copy h2 { font-size: 19px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.now-copy h2 .tscroll { display: inline; width: auto; max-width: none; } /* nowTitle 徽标内联并排 */
 .now-copy p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
 /* now 区艺术家/专辑链接:各自独立检测 hover,视觉统一(text+下划线),不再变绿 */
 .now-copy #nowArtistName.artist-link, .now-copy #nowAlbumName.album-link { cursor: pointer; }
