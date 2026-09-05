@@ -378,5 +378,5 @@ body.no-images img { display: none !important; }
   overflow: hidden;
   background: #0a0a0e;
 }
-.spectrum-canvas { display: block; width: 100%; height: auto; }
+.spectrum-canvas { display: block; width: 100%; height: 440px; }
 .spectrum-hint { margin: 8px 2px 0; font-size: 11px; color: var(--muted); }

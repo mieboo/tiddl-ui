@@ -21,9 +21,9 @@ function spectrumSetup() {
     // createMediaElementSource 每个 audio 元素只能调用一次:只在此处建一次
     const src = _spectrumCtx.createMediaElementSource(audio);
     _spectrumAnalyser = _spectrumCtx.createAnalyser();
-    // 高采样率:FFT 2048 → 1024 频点,坐标轴能显示到 ~20kHz 细节
-    _spectrumAnalyser.fftSize = 2048;
-    _spectrumAnalyser.smoothingTimeConstant = 0.82;
+    // 高分辨率:FFT 4096 → 2048 频点(~21Hz/bin @48k),动态范围用真实 dB
+    _spectrumAnalyser.fftSize = 4096;
+    _spectrumAnalyser.smoothingTimeConstant = 0.8;
     src.connect(_spectrumAnalyser);
     _spectrumAnalyser.connect(_spectrumCtx.destination);
     return true;
@@ -55,65 +55,79 @@ function spectrumDraw() {
     _spectrumOffscreen = document.createElement("canvas");
     _spectrumOffscreen.width = w; _spectrumOffscreen.height = h;
     const oc = _spectrumOffscreen.getContext("2d");
-    oc.fillStyle = "#0a0a0e"; oc.fillRect(0, 0, w, h);
+    oc.fillStyle = "rgba(10,10,14,1)"; oc.fillRect(0, 0, w, h);
   }
   const octx = _spectrumOffscreen.getContext("2d");
-  // 历史左移 1 列(最右列空出)
   octx.drawImage(_spectrumOffscreen, 1, 0, w - 1, h, 0, 0, w - 1, h);
-  octx.fillStyle = "#0a0a0e";
+  octx.fillStyle = "rgba(10,10,14,1)";
   octx.fillRect(w - 1, 0, 1, h);
-  // 新频域数据画在最右列:y → 频率(对数) → FFT bin → 幅度 → 颜色
-  const data = new Uint8Array(_spectrumAnalyser.frequencyBinCount);
-  _spectrumAnalyser.getByteFrequencyData(data);
+  // 真实 dB 频域数据:getFloatFrequencyData 返回 -inf~0dB(动态范围远超 byte)
+  const data = new Float32Array(_spectrumAnalyser.frequencyBinCount);
+  _spectrumAnalyser.getFloatFrequencyData(data);
   const fMin = 20, fMax = 20000;
-  const plotTop = 16, plotBottom = h - 18;
+  const plotTop = 22, plotBottom = h - 24;
   const plotH = plotBottom - plotTop;
+  const DB_MIN = -90, DB_MAX = -12; // 动态范围: -90dB(底噪) ~ -12dB(峰值)
+  // 新频域数据画在最右列:y → 频率(对数) → FFT bin → dB → 颜色
+  const fftSize = _spectrumAnalyser.fftSize || 4096;
   for (let py = plotTop; py < plotBottom; py++) {
     const t = (plotBottom - py) / plotH; // 0=底部(低频) → 1=顶部(高频)
     const f = fMin * Math.pow(fMax / fMin, t);
-    const bin = Math.round(f / (sampleRate / 2048));
-    const v = bin < data.length ? data[bin] / 255 : 0;
-    octx.fillStyle = spectrumColor(v);
+    const bin = Math.round(f / (sampleRate / fftSize));
+    let v = 0;
+    if (bin < data.length) {
+      const db = data[bin]; // -inf ~ 0
+      v = Number.isFinite(db) ? Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN))) : 0;
+    }
+    octx.fillStyle = spectrumColor(Math.pow(v, 0.75)); // 轻微 gamma 增强低幅可见性
     octx.fillRect(w - 1, py, 1, 1);
   }
-  // 离屏 → 可见 canvas
   ctx.drawImage(_spectrumOffscreen, 0, 0);
-  // 坐标轴(仅画在可见 canvas,不进入滚动历史)
-  ctx.strokeStyle = "rgba(255,255,255,0.10)";
-  ctx.fillStyle = "rgba(255,255,255,0.38)";
-  ctx.font = "9px system-ui, sans-serif";
+  // 坐标轴:主题感知(明暗自适应),更大字号与更明显网格
+  const axis = getComputedStyle(document.documentElement).getPropertyValue("--text") || "#f2f4f5";
+  const dim = getComputedStyle(document.documentElement).getPropertyValue("--muted") || "#969da4";
+  ctx.font = "11px system-ui, sans-serif";
   ctx.textAlign = "left";
   // 左:频率刻度(对数)
   const freqTicks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
   for (const f of freqTicks) {
     const t = Math.log10(f / fMin) / Math.log10(fMax / fMin);
     const y = plotBottom - t * plotH;
+    ctx.strokeStyle = axis; ctx.globalAlpha = 0.14; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    ctx.fillText(f >= 1000 ? `${f / 1000}k` : String(f), 1, y + 3);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = axis; ctx.globalAlpha = 0.72;
+    ctx.fillText(f >= 1000 ? `${f / 1000}k` : String(f), 4, y - 3);
+    ctx.globalAlpha = 1;
   }
   // 上:时间刻度(横轴=时间;窗口约 w 帧 ≈ 12s@60fps)
   ctx.textAlign = "center";
+  ctx.fillStyle = axis; ctx.globalAlpha = 0.72;
   for (const sec of [-10, -5, 0]) {
     const x = w - 1 + sec * 60;
     if (x >= 0 && x < w) {
+      ctx.strokeStyle = axis; ctx.globalAlpha = 0.14; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, plotBottom); ctx.stroke();
-      ctx.fillText(sec === 0 ? "now" : `${sec}s`, x, 10);
+      ctx.globalAlpha = 0.72;
+      ctx.fillText(sec === 0 ? "now" : `${sec}s`, x, 14);
     }
   }
+  ctx.globalAlpha = 1;
   ctx.textAlign = "left";
-  ctx.fillStyle = "rgba(255,255,255,0.30)";
-  ctx.fillText("time →", w - 46, h - 5);
-  // 右下:dB 色标(暗=弱,金=强)
-  const legendX = w - 90, legendY = h - 13, legendW = 84, legendH = 6;
+  ctx.fillStyle = dim; ctx.globalAlpha = 0.9;
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.fillText("time →", w - 56, h - 7);
+  // 右下:dB 色标(暗=弱,金=强)+ 范围标注
+  const legendX = w - 120, legendY = h - 16, legendW = 112, legendH = 8;
   for (let i = 0; i < legendW; i++) {
     ctx.fillStyle = spectrumColor(i / legendW);
     ctx.fillRect(legendX + i, legendY, 1, legendH);
   }
-  ctx.fillStyle = "rgba(255,255,255,0.30)";
-  ctx.font = "8px system-ui, sans-serif";
-  ctx.fillText("-60dB", legendX, legendY + 12);
-  ctx.fillText("0dB", legendX + legendW - 18, legendY + 12);
-  ctx.font = "10px system-ui, sans-serif";
+  ctx.fillStyle = dim; ctx.globalAlpha = 0.9;
+  ctx.font = "9px system-ui, sans-serif";
+  ctx.fillText("-90dB", legendX, legendY + 16);
+  ctx.fillText("-12dB", legendX + legendW - 30, legendY + 16);
+  ctx.globalAlpha = 1;
   _spectrumRaf = requestAnimationFrame(spectrumDraw);
 }
 function spectrumSetVisible(on) {
