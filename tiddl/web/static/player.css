@@ -373,10 +373,46 @@ body.no-images img { display: none !important; }
 /* ---- 实时频谱视图(右栏标签页):专业金紫渐变 + 坐标轴 ---- */
 .spectrum-view { padding: 10px 0; }
 .spectrum-wrap {
+  display: grid;
+  grid-template-columns: 42px 1fr;   /* 左轴 | 主图 */
+  grid-template-rows: 1fr 20px;        /* 主图 | 底轴 */
+  gap: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
   background: #0a0a0e;
 }
-.spectrum-canvas { display: block; width: 100%; height: 440px; }
+/* 左:频率轴(独立于频谱图,不覆盖) */
+.spectrum-yaxis {
+  grid-column: 1; grid-row: 1;
+  position: relative;
+  border-right: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  user-select: none;
+}
+.spectrum-yaxis span {
+  position: absolute; right: 6px;
+  transform: translateY(-50%);
+  line-height: 1;
+}
+/* 主图区:频谱占满 */
+.spectrum-main { grid-column: 2; grid-row: 1; position: relative; background: #0a0a0e; }
+.spectrum-canvas { display: block; width: 100%; height: 100%; }
+/* 底:时间轴(独立) */
+.spectrum-xaxis {
+  grid-column: 1 / -1; grid-row: 2;
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 20px;
+  padding: 0 10px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  user-select: none;
+}
+.spectrum-xaxis span { opacity: .9; }
 .spectrum-hint { margin: 8px 2px 0; font-size: 11px; color: var(--muted); }

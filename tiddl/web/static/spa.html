@@ -170,7 +170,11 @@
         <div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div>
         <div id="spectrumView" class="spectrum-view" hidden>
           <div class="spectrum-wrap">
-            <canvas id="spectrumCanvas" class="spectrum-canvas" width="720" height="440"></canvas>
+            <div class="spectrum-yaxis" aria-hidden="true"></div>
+            <div class="spectrum-main">
+              <canvas id="spectrumCanvas" class="spectrum-canvas" width="640" height="400"></canvas>
+            </div>
+            <div class="spectrum-xaxis" aria-hidden="true"><span class="sx-now">now</span></div>
           </div>
           <p class="spectrum-hint" data-i18n="spectrumHint">Real-time frequency analyzer</p>
         </div>
