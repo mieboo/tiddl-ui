@@ -377,6 +377,14 @@ body.no-images img { display: none !important; }
   font-size: 11px; font-weight: 600; color: var(--muted);
   text-transform: uppercase; letter-spacing: .08em;
   padding: 0 2px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.spectrum-scale {
+  height: 22px; padding: 0 4px;
+  border: 1px solid var(--line); border-radius: 5px;
+  background: var(--surface-2); color: var(--text);
+  font-size: 10px; cursor: pointer;
 }
 /* 频谱图:占右栏 1/4 高(5 区 grid: 顶轴/左轴/主图/底轴/右轴) */
 .spectrum-wrap {

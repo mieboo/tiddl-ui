@@ -75,6 +75,62 @@ function spectrumSyncSizes() {
   }
 }
 // 主频谱图:横轴时间、纵轴频率(对数)、颜色幅度
+// ---- 频率刻度:Linear/Log/Mel/Bark/ERB/Period ----
+// scalePos(f, fMin, fMax, scale) → 0~1,0=最低频(底部),1=最高频(顶部)
+function scalePos(f, fMin, fMax, scale) {
+  switch (scale) {
+    case "linear":
+      return (f - fMin) / (fMax - fMin);
+    case "log":
+      return Math.log10(f / fMin) / Math.log10(fMax / fMin);
+    case "mel":
+      return (2595*Math.log10(1+f/700) - 2595*Math.log10(1+fMin/700)) /
+             (2595*Math.log10(1+fMax/700) - 2595*Math.log10(1+fMin/700));
+    case "bark":
+      return (13*Math.atan(0.00076*f) + 3.5*Math.atan(Math.pow(f/7500, 2)) -
+              (13*Math.atan(0.00076*fMin) + 3.5*Math.atan(Math.pow(fMin/7500, 2)))) /
+             (13*Math.atan(0.00076*fMax) + 3.5*Math.atan(Math.pow(fMax/7500, 2)) -
+              (13*Math.atan(0.00076*fMin) + 3.5*Math.atan(Math.pow(fMin/7500, 2))));
+    case "erb":
+      return (21.4*Math.log10(1+4.37*f/1000) - 21.4*Math.log10(1+4.37*fMin/1000)) /
+             (21.4*Math.log10(1+4.37*fMax/1000) - 21.4*Math.log10(1+4.37*fMin/1000));
+    case "period":
+      // 周期=1/f:低频周期大在底部,高频周期小在顶部
+      return (1/fMin - 1/f) / (1/fMin - 1/fMax);
+    default:
+      return Math.log10(f / fMin) / Math.log10(fMax / fMin);
+  }
+}
+// 各刻度建议的 y 轴刻度频率(Hz)
+function scaleTicks(scale) {
+  switch (scale) {
+    case "linear": return [100, 500, 1000, 2000, 5000, 10000, 15000];
+    case "mel":
+    case "log":   return [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    case "bark":  return [20, 100, 200, 400, 800, 1500, 3000, 6000, 12000, 20000];
+    case "erb":   return [20, 50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 20000];
+    case "period":return [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    default:      return [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+  }
+}
+function currentScale() {
+  const sel = document.getElementById("spectrumScale");
+  return sel ? sel.value : "mel";
+}
+// 刻度切换:重建左轴刻度(清除 built 标记,下次 spectrumRenderAxes 重建)
+function bindSpectrumScale() {
+  const sel = document.getElementById("spectrumScale");
+  if (!sel || sel.dataset.bound) return;
+  sel.dataset.bound = "1";
+  sel.addEventListener("change", () => {
+    const yAxis = document.querySelector(".spectrum-yaxis");
+    if (yAxis) { delete yAxis.dataset.built; yAxis.innerHTML = ""; }
+    spectrumRenderAxes();
+  });
+}
+
+// 峰值余晖:记录每行(频率)的历史峰值,缓慢衰减,形成"彗尾"轨迹
+let _spectrumPeaks = [];
 function spectrumDraw() {
   const canvas = $("#spectrumCanvas");
   if (!canvas || !_spectrumAnalyser) return;
@@ -87,10 +143,24 @@ function spectrumDraw() {
   const fMin = 20, fMax = 20000;
   const DB_MIN = -96, DB_MAX = -10;
   const fftSize = _spectrumAnalyser.fftSize || 4096;
+  if (_spectrumPeaks.length !== h) { _spectrumPeaks = new Array(h).fill(0); }
+  const PEAK_DECAY = 0.06; // 每帧峰值衰减率(越小余晖越长)
   scrollDraw(canvas, "spec", (octx, W, H) => {
+    const scale = currentScale();
     for (let py = 0; py < H; py++) {
-      const t = 1 - py / H;
-      const f = fMin * Math.pow(fMax / fMin, t);
+      const t = 1 - py / H; // 0=底部(低频) → 1=顶部(高频)
+      // 反解:在所选刻度轴上 t 对应哪个频率 → 求该频率的 FFT bin
+      // 数值反解:在 fMin..fMax 上二分/扫描逼近(刻度单调)
+      let f = fMin + (fMax - fMin) * t;
+      if (scale !== "linear") {
+        // 二分搜索 scalePos(f) == t
+        let lo = fMin, hi = fMax;
+        for (let it = 0; it < 24; it++) {
+          const mid = (lo + hi) / 2;
+          if (scalePos(mid, fMin, fMax, scale) < t) lo = mid; else hi = mid;
+        }
+        f = (lo + hi) / 2;
+      }
       const bin = Math.round(f / (sampleRate / fftSize));
       let v = 0;
       if (bin < data.length) {
@@ -99,6 +169,12 @@ function spectrumDraw() {
       }
       octx.fillStyle = spectrumColor(Math.pow(v, 0.72));
       octx.fillRect(W - 1, py, 1, 1);
+      // 峰值余晖:当前值超过历史峰值则更新;否则峰值缓慢衰减
+      _spectrumPeaks[py] = Math.max(_spectrumPeaks[py] * (1 - PEAK_DECAY), v);
+      if (_spectrumPeaks[py] > 0.05) {
+        octx.fillStyle = spectrumColor(Math.pow(_spectrumPeaks[py], 0.72));
+        octx.fillRect(W - 1, py, 1, 1);
+      }
     }
   }, w, h);
   spectrumDrawCqt();
@@ -106,43 +182,68 @@ function spectrumDraw() {
   _spectrumRaf = requestAnimationFrame(spectrumDraw);
 }
 // 常量 Q 变换(CQT):对数频带聚合的频谱能量
+// ---- 真 CQT(恒 Q 变换,纯 JS 核矩阵)----
+// 预计算复数核:每个频带 b 一个复正弦×Hann 窗序列,与 FFT 帧(时域)点积。
+// 比 FFT bin 聚合更接近教科书 CQT(每个频带独立带宽,恒 Q)。
+let _cqtKernel = null;      // Float32Array[bands][2*n]:复核
+let _cqtBands = 0, _cqtBPI = 0, _cqtWin = 0;
+function cqtBuildKernel(bpi, fMin, fMax, sampleRate) {
+  const bands = Math.ceil(Math.log2(fMax / fMin) * bpi);
+  const win = 512; // 核窗长(固定,性能与分辨率折中)
+  const kernel = new Float32Array(bands * win * 2);
+  for (let b = 0; b < bands; b++) {
+    const f0 = fMin * Math.pow(2, b / bpi);
+    const f1 = fMin * Math.pow(2, (b + 1) / bpi);
+    const fc = Math.sqrt(f0 * f1); // 几何中心频率
+    const Q = fc / (f1 - f0);      // 恒 Q
+    // Hann 窗 + 复指数,窗长按 Q 截断(低频窗长,高频窗短)
+    const N = Math.min(win, Math.max(16, Math.round(Q)));
+    for (let n = 0; n < N; n++) {
+      const w = 0.5 * (1 - Math.cos(2 * Math.PI * n / N));
+      const ph = 2 * Math.PI * fc * (n - N / 2) / sampleRate;
+      const re = Math.cos(ph) * w, im = -Math.sin(ph) * w;
+      kernel[(b * win + n) * 2] = re;
+      kernel[(b * win + n) * 2 + 1] = im;
+    }
+  }
+  _cqtKernel = kernel; _cqtBands = bands; _cqtBPI = bpi; _cqtWin = win;
+  return { bands, win };
+}
 function spectrumDrawCqt() {
   const canvas = $("#cqtCanvas");
   if (!canvas || !_spectrumAnalyser) return;
   const w = canvas.width, h = canvas.height;
   const sampleRate = _spectrumCtx ? _spectrumCtx.sampleRate : 48000;
-  const data = new Float32Array(_spectrumAnalyser.frequencyBinCount);
-  _spectrumAnalyser.getFloatFrequencyData(data);
-  const fftSize = _spectrumAnalyser.fftSize || 4096;
-  // 真 CQT:每八度 BPI 个频带,频率分辨率随频率增长(恒 Q)
-  const BPI = 36;                    // 每八度 36 带(≈半音 x3)
-  const fMin = 27.5, fMax = 16000;
-  const bands = Math.ceil(Math.log2(fMax / fMin) * BPI); // ~330
-  const binHz = sampleRate / fftSize;
-  const DB_MIN = -96;
+  // 真 CQT 参数:每八度 48 带,27.5Hz~16kHz → ~460 带
+  const BPI = 48, fMin = 27.5, fMax = 16000;
+  if (!_cqtKernel) cqtBuildKernel(BPI, fMin, fMax, sampleRate);
+  const bands = _cqtBands, win = _cqtWin;
+  // 时域帧(FFT 帧的前 win 点)
+  const time = new Float32Array(_spectrumAnalyser.fftSize);
+  _spectrumAnalyser.getFloatTimeDomainData(time);
+  // 频带能量(复数点积取模平方)
+  const dbs = new Array(bands).fill(-120);
+  let frameMax = -120;
+  const offset = 0;
+  for (let b = 0; b < bands; b++) {
+    let re = 0, im = 0;
+    const base = b * win * 2;
+    for (let n = 0; n < win; n++) {
+      const x = time[n + offset] || 0;
+      re += x * _cqtKernel[base + n * 2];
+      im += x * _cqtKernel[base + n * 2 + 1];
+    }
+    const pow = re * re + im * im;
+    if (pow > 1e-12) {
+      dbs[b] = 10 * Math.log10(pow + 1e-10);
+      if (dbs[b] > frameMax) frameMax = dbs[b];
+    }
+  }
+  const RANGE = 30; // 相对最强频带的显示窗口(dB)
   const FLOOR = -70; // 绝对下限:静音帧全暗
   scrollDraw(canvas, "cqt", (octx, W, H) => {
-    // 帧内相对归一化:以最强频带为基准,其余按相对 dB 衰减,
-    // 真实音乐的低频能量不再压垮全图(与 Chroma 同理)
-    const dbs = new Array(bands).fill(DB_MIN);
-    let frameMax = DB_MIN;
     for (let b = 0; b < bands; b++) {
-      const f0 = fMin * Math.pow(2, b / BPI);
-      const f1 = fMin * Math.pow(2, (b + 1) / BPI);
-      const bin0 = Math.max(0, Math.round(f0 / binHz));
-      const bin1 = Math.max(bin0 + 1, Math.round(f1 / binHz));
-      let sum = 0, n = 0;
-      for (let i = bin0; i < bin1 && i < data.length; i++) {
-        if (Number.isFinite(data[i])) { sum += Math.pow(10, data[i] / 10); n++; }
-      }
-      if (n) {
-        dbs[b] = 10 * Math.log10(sum / n);
-        if (dbs[b] > frameMax) frameMax = dbs[b];
-      }
-    }
-    const RANGE = 30; // 相对最强频带的显示窗口(dB)
-    for (let b = 0; b < bands; b++) {
-      const rel = dbs[b] - frameMax; // <=0
+      const rel = dbs[b] - frameMax;
       const v = frameMax > FLOOR ? Math.max(0, Math.min(1, (rel + RANGE) / RANGE)) : 0;
       const bandH = H / bands;
       const y = H - (b + 1) / bands * H;
@@ -152,6 +253,9 @@ function spectrumDrawCqt() {
   }, w, h);
 }
 // 色度图(Chromagram):12 音高类能量,横轴时间、纵轴音名
+// 采用 librosa CENS 归一化管线: 原始能量 → 每帧 L2 归一化 →
+// 对比度增强(平方) → 时间平滑(指数移动平均)。解决"全亮看不出音符"。
+let _chromaSmooth = null; // 时间平滑后的 chroma 向量
 function spectrumDrawChroma() {
   const canvas = $("#chromaCanvas");
   if (!canvas || !_spectrumAnalyser) return;
@@ -161,38 +265,43 @@ function spectrumDrawChroma() {
   _spectrumAnalyser.getFloatFrequencyData(data);
   const fftSize = _spectrumAnalyser.fftSize || 4096;
   const fMin = 55, fMax = 9000; // 覆盖多八度
+  // 1. 原始 chroma:每个频点归属最近的音高类(按 MIDI 音高 mod 12)
+  const chroma = new Array(12).fill(0);
+  const counts = new Array(12).fill(0);
+  const bin0 = Math.round(fMin / (sampleRate / fftSize));
+  const bin1 = Math.min(data.length, Math.round(fMax / (sampleRate / fftSize)));
+  for (let i = bin0; i < bin1; i++) {
+    if (!Number.isFinite(data[i])) continue;
+    const f = i * (sampleRate / fftSize);
+    const midi = 69 + 12 * Math.log2(f / 440);
+    const pc = ((Math.round(midi) % 12) + 12) % 12;
+    chroma[pc] += Math.pow(10, data[i] / 10);
+    counts[pc]++;
+  }
+  for (let pc = 0; pc < 12; pc++) {
+    if (counts[pc]) chroma[pc] /= counts[pc];
+  }
+  // 2. CENS 步骤 A:L2 归一化(除以向量范数)——消除整体响度影响
+  let norm = 0;
+  for (let pc = 0; pc < 12; pc++) norm += chroma[pc] * chroma[pc];
+  norm = Math.sqrt(norm);
+  if (norm > 1e-6) for (let pc = 0; pc < 12; pc++) chroma[pc] /= norm;
+  // 3. CENS 步骤 B:对比度增强(平方)——突出强音高类,压暗弱类
+  for (let pc = 0; pc < 12; pc++) chroma[pc] *= chroma[pc];
+  // 4. CENS 步骤 C:时间平滑(指数移动平均,约 5 帧窗口)
+  if (!_chromaSmooth) _chromaSmooth = chroma.slice();
+  const alpha = 0.4; // 平滑系数(越小越平滑)
+  for (let pc = 0; pc < 12; pc++) _chromaSmooth[pc] = alpha * chroma[pc] + (1 - alpha) * _chromaSmooth[pc];
+  // 5. 映射到颜色:相对最强类,20dB 窗口;弱类彻底压暗
+  let frameMax = 0;
+  for (let pc = 0; pc < 12; pc++) if (_chromaSmooth[pc] > frameMax) frameMax = _chromaSmooth[pc];
+  const FLOOR = 1e-5; // 绝对下限:静音帧全暗
   scrollDraw(canvas, "chroma", (octx, W, H) => {
-    // 每个频点归属最近的音高类(按 MIDI 音高 mod 12)
-    const chroma = new Array(12).fill(0);
-    const counts = new Array(12).fill(0);
-    const bin0 = Math.round(fMin / (sampleRate / fftSize));
-    const bin1 = Math.min(data.length, Math.round(fMax / (sampleRate / fftSize)));
-    for (let i = bin0; i < bin1; i++) {
-      if (!Number.isFinite(data[i])) continue;
-      const f = i * (sampleRate / fftSize);
-      const midi = 69 + 12 * Math.log2(f / 440);
-      const pc = ((Math.round(midi) % 12) + 12) % 12;
-      chroma[pc] += Math.pow(10, data[i] / 10);
-      counts[pc]++;
-    }
-    // 帧内相对归一化:取 12 类中最大能量,其余按相对 dB 衰减——
-    // 避免真实音乐所有音高类都过阈值(全亮看不出音符)
-    const dbs = new Array(12).fill(-120);
-    let frameMax = -120;
     for (let pc = 0; pc < 12; pc++) {
-      if (counts[pc]) {
-        dbs[pc] = 10 * Math.log10(chroma[pc] / counts[pc]);
-        if (dbs[pc] > frameMax) frameMax = dbs[pc];
-      }
-    }
-    const RANGE = 22; // 相对最强音符的 dB 窗口:仅真正突出音符接近满值
-    const FLOOR = -75; // 绝对下限:低于此电平视为无信号(静音帧全暗,不出现白块)
-    for (let pc = 0; pc < 12; pc++) {
-      const rel = dbs[pc] - frameMax; // <=0
-      const v = frameMax > FLOOR ? Math.max(0, Math.min(1, (rel + RANGE) / RANGE)) : 0;
+      const v = frameMax > FLOOR ? Math.max(0, Math.min(1, _chromaSmooth[pc] / frameMax)) : 0;
       const rowH = H / 12;
       const y = H - (pc + 1) / 12 * H;
-      octx.fillStyle = spectrumColor(Math.pow(v, 2.2)); // gamma 增强对比(主音明显,其余压暗)
+      octx.fillStyle = spectrumColor(Math.pow(v, 1.6)); // 平方后更陡:主音亮,其余暗
       octx.fillRect(W - 1, y, 1, Math.max(1, Math.ceil(rowH)));
     }
   }, w, h);
@@ -213,11 +322,12 @@ function spectrumDrawChroma() {
 // 填充坐标轴 DOM:左频率轴、顶/底时间轴、右 dB 轴、色度图音名
 function spectrumRenderAxes() {
   const fMin = 20, fMax = 20000;
+  const scale = currentScale();
   const yAxis = document.querySelector(".spectrum-yaxis");
   if (yAxis && !yAxis.dataset.built) {
     yAxis.dataset.built = "1";
-    for (const f of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]) {
-      const t = Math.log10(f / fMin) / Math.log10(fMax / fMin);
+    for (const f of scaleTicks(scale)) {
+      const t = scalePos(f, fMin, fMax, scale);
       const span = document.createElement("span");
       span.textContent = f >= 1000 ? `${f / 1000}k` : String(f);
       span.style.bottom = `${(t * 100).toFixed(1)}%`;
@@ -255,6 +365,7 @@ function spectrumSetVisible(on) {
   if (on) {
     if (!spectrumSetup()) return;
     spectrumSyncSizes();
+    bindSpectrumScale();
     spectrumRenderAxes();
     if (_spectrumCtx && _spectrumCtx.state === "suspended") _spectrumCtx.resume().catch(() => {});
     if (!_spectrumRaf) _spectrumRaf = requestAnimationFrame(spectrumDraw);
