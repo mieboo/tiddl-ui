@@ -239,7 +239,7 @@ const state = {
   searchTimer: null,
   searchRequest: 0,
   searchResults: [],
-  lang: localStorage.getItem("tiddl-language") || "en",
+  lang: localStorage.getItem("tiddl-language") || (navigator.language && navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en"),
   theme: localStorage.getItem("tiddl-theme") || "dark",
   defaults: {
     videos: localStorage.getItem("tiddl-default-videos") === "true",
@@ -856,7 +856,7 @@ async function cancelJob(jobId) {
 function applyLocale() {
   document.documentElement.lang = state.lang === "zh" ? "zh-CN" : "en";
   $("#languageSelect").value = state.lang;
-  document.querySelectorAll("#view-downloads [data-i18n], .topbar [data-i18n]").forEach((element) => { element.textContent = t(element.dataset.i18n); });
+  document.querySelectorAll("#view-downloads [data-i18n], #loginGate [data-i18n], .topbar [data-i18n]").forEach((element) => { element.textContent = t(element.dataset.i18n); });
   $("#themeButton").title = t("switchTheme");
   $("#themeButton").setAttribute("aria-label", t("switchTheme"));
   $("#refreshButton").title = t("refreshTasks");

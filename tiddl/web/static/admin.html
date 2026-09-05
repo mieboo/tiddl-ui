@@ -7,7 +7,8 @@
   <title>Admin - Abducted Tidal Player</title>
   <script>
     document.documentElement.dataset.theme = localStorage.getItem("tiddl-theme") || "dark";
-    const _lang = localStorage.getItem("tiddl-language") || "en";
+    // 语言:localStorage 手动选择优先,否则按浏览器语言(非中文即英文)
+    const _lang = localStorage.getItem("tiddl-language") || (navigator.language && navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en");
     document.documentElement.lang = _lang === "zh" ? "zh-CN" : "en";
   </script>
   <link rel="stylesheet" href="/static/styles.css">
