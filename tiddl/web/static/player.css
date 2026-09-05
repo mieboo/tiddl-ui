@@ -453,10 +453,11 @@ body.no-images img { display: none !important; }
 .spectrum-parts {
   flex: 3 1 75%;
   min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
+.spectrum-parts .spectrum-part { flex: 1 1 50%; min-height: 0; }
 .spectrum-part {
   display: flex; flex-direction: column;
   border: 1px solid var(--line);

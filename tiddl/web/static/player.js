@@ -61,7 +61,6 @@ function scrollDraw(canvas, offKey, paintCol, w, h) {
 function spectrumSyncSizes() {
   const pairs = [
     ["#spectrumCanvas", ".spectrum-main"],
-    ["#oscCanvas", ".spectrum-part"],
     ["#cqtCanvas", ".spectrum-part"],
     ["#chromaCanvas", ".spectrum-part"],
   ];
@@ -102,39 +101,9 @@ function spectrumDraw() {
       octx.fillRect(W - 1, py, 1, 1);
     }
   }, w, h);
-  spectrumDrawOsc();
   spectrumDrawCqt();
   spectrumDrawChroma();
   _spectrumRaf = requestAnimationFrame(spectrumDraw);
-}
-// 双通道波形(示波器):左右声道时域曲线
-function spectrumDrawOsc() {
-  const canvas = $("#oscCanvas");
-  if (!canvas || !_spectrumAnalyser) return;
-  const w = canvas.width, h = canvas.height;
-  const ctx = canvas.getContext("2d");
-  const time = new Float32Array(_spectrumAnalyser.fftSize);
-  _spectrumAnalyser.getFloatTimeDomainData(time);
-  ctx.fillStyle = "#0c0d10"; ctx.fillRect(0, 0, w, h);
-  // 中位线
-  ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
-  // 双通道:上半 L、下半 R(单声道源时两半相同)
-  const halves = [[0, h/2], [h/2, h]];
-  const colors = ["#4ade80", "#60a5fa"];
-  for (let ch = 0; ch < 2; ch++) {
-    const y0 = halves[ch][0] + (halves[ch][1] - halves[ch][0]) / 2;
-    const amp = (halves[ch][1] - halves[ch][0]) / 2 * 0.9;
-    ctx.strokeStyle = colors[ch];
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    for (let i = 0; i < time.length; i++) {
-      const x = i / (time.length - 1) * w;
-      const y = y0 - time[i] * amp;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
 }
 // 常量 Q 变换(CQT):对数频带聚合的频谱能量
 function spectrumDrawCqt() {
@@ -264,8 +233,8 @@ window.__spectrumTest = {
 };
 
 const copy = {
-  en: { downloads:"Downloader", signIn:"Sign in", loginSubtitle:"Sign in to continue", username:"Username", password:"Password", getAccount:"No account? Claim one", player:"Player",playlist:"Playlist", clear:"Clear playlist", empty:"Search or paste a track or album link", nothingPlaying:"Nothing playing", lyrics:"Lyrics", noLyrics:"Lyrics will appear here", searchPlaceholder:"Search tracks and albums, or paste a Tidal link", track:"Track", album:"Album", add:"Add to playlist", play:"Play", pause:"Pause", previous:"Previous", next:"Next", shuffle:"Shuffle", repeat:"Repeat", mute:"Mute", settings:"Player settings", defaultHighest:"Play the highest quality by default", defaultLowest:"Play the lowest quality by default (96 kbps, saves data)", noImages:"Disable images (saves data)", unsupportedAtmos:"This browser cannot decode this Dolby Atmos stream (E-AC-3/AC-4). This track has no stereo stream on Tidal.", requestFailed:"Request failed", loading:"Opening stream...", loadingTracks:"Loading tracks...", loadingArtist:"Loading artist...", loadingInfo:"Loading details...", retryingStream:"Retrying stream...", noResults:"No tracks or albums found", searchFavorites:"Search your favorites", favorites:"Favorites", favorite:"Favorite", unfavorite:"Unfavorite", remove:"Remove", download:"Download", favEmpty:"Tracks you favorite will appear here", addedToQueue:"Added to playlist", alreadyInQueue:"Already in the playlist", partiallyInQueue:"Some tracks are in the playlist", downloadQueued:"Added to download queue", defaultHighestToast:"Default highest quality is enabled", defaultLowestToast:"Default lowest quality is enabled (96 kbps)", streamFailed:"This stream could not be played. The playback session may have expired or the format is not supported.", favViaAlbum:"Already favorited with its album.", artistTab:"Artist", following:"Following", followEmpty:"Artists you follow will appear here", followSearchPlaceholder:"Filter followed artists", unfollow:"Unfollow", follow:"Follow", following_:"Following" , artistEmpty:"Play a track, then click the artist name to open their page.", artistAlbums:"Albums", artistSingles:"Singles & EPs", artistTracks:"Featured", artistSearchPlaceholder:"Search artists on Tidal", artistSearchNone:"No artists found", infoTab:"Info", infoEmpty:"Play a track to see its details here.", infoType:"Type", infoArtist:"Artist", infoAlbum:"Album", infoTrackId:"Track", infoAlbumId:"Album", infoDuration:"Duration", infoQuality:"Quality", infoDepth:"Bit depth / Rate", infoCodec:"Codec", infoMode:"Mode", spectrum:"Spectrum", spectrumHint:"Spectrogram · time × frequency · color = amplitude", apiV2:"v2 · DRM", apiV1:"v1 · direct", apiFallbackV1:"v2 failed, fell back to v1", tapToPlay:"Tap to play" },
-  zh: { downloads:"下载器", signIn:"登录", loginSubtitle:"登录以继续", username:"用户名", password:"密码", getAccount:"没有账号？领取一个", player:"播放器", playlist:"播放列表", clear:"清空播放列表", empty:"搜索或粘贴歌曲、专辑链接", nothingPlaying:"尚未播放", lyrics:"歌词", noLyrics:"歌词将在这里显示", searchPlaceholder:"搜索歌曲和专辑，或粘贴 Tidal 链接", track:"歌曲", album:"专辑", add:"加入播放列表", play:"播放", pause:"暂停", previous:"上一首", next:"下一首", shuffle:"随机播放", repeat:"循环模式", mute:"静音", settings:"播放器设置", defaultHighest:"默认播放最高音质", defaultLowest:"默认播放最低音质（96 kbps，节省流量）", noImages:"禁止图片（节省流量）", unsupportedAtmos:"当前浏览器无法解码这条 Dolby Atmos 音频流（E-AC-3/AC-4），且该歌曲在 Tidal 没有立体声版本。", requestFailed:"请求失败", loading:"正在打开音频流...", loadingTracks:"正在加载歌曲...", loadingArtist:"正在加载艺术家...", loadingInfo:"正在加载信息...", retryingStream:"正在重试播放...", noResults:"未找到歌曲或专辑", searchFavorites:"搜索收藏夹内的歌曲", favorites:"收藏夹", favorite:"收藏", unfavorite:"取消收藏", remove:"移除", download:"下载", favEmpty:"点击播放页的 ♥，收藏的歌曲会显示在这里", addedToQueue:"已加入播放列表", alreadyInQueue:"已在播放列表中", partiallyInQueue:"部分歌曲已在播放列表", downloadQueued:"已加入下载队列", defaultHighestToast:"您已启用默认播放最高音质", defaultLowestToast:"您已启用默认播放最低音质（96 kbps）", streamFailed:"无法播放此音频流，播放会话可能已过期或格式不受支持", favViaAlbum:"该歌曲已随专辑收藏", artistTab:"艺术家", following:"关注", followEmpty:"你关注的艺术家会显示在这里", followSearchPlaceholder:"搜索已关注的艺术家", unfollow:"取消关注", follow:"关注", following_:"已关注" , artistEmpty:"播放歌曲后，点击艺术家名字查看主页", artistAlbums:"专辑", artistSingles:"单曲 & EP", artistTracks:"参与作品", artistSearchPlaceholder:"搜索 Tidal 上的艺术家", artistSearchNone:"未找到艺术家", infoTab:"信息", infoEmpty:"播放歌曲后，这里会显示歌曲和专辑信息", infoType:"类型", infoArtist:"艺术家", infoAlbum:"专辑", infoTrackId:"歌曲", infoAlbumId:"专辑", infoDuration:"时长", infoQuality:"音质", infoDepth:"位深 / 采样率", infoCodec:"编码", infoMode:"模式", spectrum:"频谱", spectrumHint:"频谱图 · 横轴时间 × 纵轴频率 · 颜色=幅度", apiV2:"v2 · DRM", apiV1:"v1 · 直连", apiFallbackV1:"v2 失败，已回退 v1" }
+  en: { downloads:"Downloader", signIn:"Sign in", loginSubtitle:"Sign in to continue", username:"Username", password:"Password", getAccount:"No account? Claim one", player:"Player",playlist:"Playlist", clear:"Clear playlist", empty:"Search or paste a track or album link", nothingPlaying:"Nothing playing", lyrics:"Lyrics", noLyrics:"Lyrics will appear here", searchPlaceholder:"Search tracks and albums, or paste a Tidal link", track:"Track", album:"Album", add:"Add to playlist", play:"Play", pause:"Pause", previous:"Previous", next:"Next", shuffle:"Shuffle", repeat:"Repeat", mute:"Mute", settings:"Player settings", defaultHighest:"Play the highest quality by default", defaultLowest:"Play the lowest quality by default (96 kbps, saves data)", noImages:"Disable images (saves data)", unsupportedAtmos:"This browser cannot decode this Dolby Atmos stream (E-AC-3/AC-4). This track has no stereo stream on Tidal.", requestFailed:"Request failed", loading:"Opening stream...", loadingTracks:"Loading tracks...", loadingArtist:"Loading artist...", loadingInfo:"Loading details...", retryingStream:"Retrying stream...", noResults:"No tracks or albums found", searchFavorites:"Search your favorites", favorites:"Favorites", favorite:"Favorite", unfavorite:"Unfavorite", remove:"Remove", download:"Download", favEmpty:"Tracks you favorite will appear here", addedToQueue:"Added to playlist", alreadyInQueue:"Already in the playlist", partiallyInQueue:"Some tracks are in the playlist", downloadQueued:"Added to download queue", defaultHighestToast:"Default highest quality is enabled", defaultLowestToast:"Default lowest quality is enabled (96 kbps)", streamFailed:"This stream could not be played. The playback session may have expired or the format is not supported.", favViaAlbum:"Already favorited with its album.", artistTab:"Artist", following:"Following", followEmpty:"Artists you follow will appear here", followSearchPlaceholder:"Filter followed artists", unfollow:"Unfollow", follow:"Follow", following_:"Following" , artistEmpty:"Play a track, then click the artist name to open their page.", artistAlbums:"Albums", artistSingles:"Singles & EPs", artistTracks:"Featured", artistSearchPlaceholder:"Search artists on Tidal", artistSearchNone:"No artists found", infoTab:"Info", infoEmpty:"Play a track to see its details here.", infoType:"Type", infoArtist:"Artist", infoAlbum:"Album", infoTrackId:"Track", infoAlbumId:"Album", infoDuration:"Duration", infoQuality:"Quality", infoDepth:"Bit depth / Rate", infoCodec:"Codec", infoMode:"Mode", spectrum:"Spectrum", spectrumHint:"Spectrogram · time × frequency · color = amplitude", spectrumCqt:"CQT (Constant-Q)", spectrumChroma:"Chromagram", apiV2:"v2 · DRM", apiV1:"v1 · direct", apiFallbackV1:"v2 failed, fell back to v1", tapToPlay:"Tap to play" },
+  zh: { downloads:"下载器", signIn:"登录", loginSubtitle:"登录以继续", username:"用户名", password:"密码", getAccount:"没有账号？领取一个", player:"播放器", playlist:"播放列表", clear:"清空播放列表", empty:"搜索或粘贴歌曲、专辑链接", nothingPlaying:"尚未播放", lyrics:"歌词", noLyrics:"歌词将在这里显示", searchPlaceholder:"搜索歌曲和专辑，或粘贴 Tidal 链接", track:"歌曲", album:"专辑", add:"加入播放列表", play:"播放", pause:"暂停", previous:"上一首", next:"下一首", shuffle:"随机播放", repeat:"循环模式", mute:"静音", settings:"播放器设置", defaultHighest:"默认播放最高音质", defaultLowest:"默认播放最低音质（96 kbps，节省流量）", noImages:"禁止图片（节省流量）", unsupportedAtmos:"当前浏览器无法解码这条 Dolby Atmos 音频流（E-AC-3/AC-4），且该歌曲在 Tidal 没有立体声版本。", requestFailed:"请求失败", loading:"正在打开音频流...", loadingTracks:"正在加载歌曲...", loadingArtist:"正在加载艺术家...", loadingInfo:"正在加载信息...", retryingStream:"正在重试播放...", noResults:"未找到歌曲或专辑", searchFavorites:"搜索收藏夹内的歌曲", favorites:"收藏夹", favorite:"收藏", unfavorite:"取消收藏", remove:"移除", download:"下载", favEmpty:"点击播放页的 ♥，收藏的歌曲会显示在这里", addedToQueue:"已加入播放列表", alreadyInQueue:"已在播放列表中", partiallyInQueue:"部分歌曲已在播放列表", downloadQueued:"已加入下载队列", defaultHighestToast:"您已启用默认播放最高音质", defaultLowestToast:"您已启用默认播放最低音质（96 kbps）", streamFailed:"无法播放此音频流，播放会话可能已过期或格式不受支持", favViaAlbum:"该歌曲已随专辑收藏", artistTab:"艺术家", following:"关注", followEmpty:"你关注的艺术家会显示在这里", followSearchPlaceholder:"搜索已关注的艺术家", unfollow:"取消关注", follow:"关注", following_:"已关注" , artistEmpty:"播放歌曲后，点击艺术家名字查看主页", artistAlbums:"专辑", artistSingles:"单曲 & EP", artistTracks:"参与作品", artistSearchPlaceholder:"搜索 Tidal 上的艺术家", artistSearchNone:"未找到艺术家", infoTab:"信息", infoEmpty:"播放歌曲后，这里会显示歌曲和专辑信息", infoType:"类型", infoArtist:"艺术家", infoAlbum:"专辑", infoTrackId:"歌曲", infoAlbumId:"专辑", infoDuration:"时长", infoQuality:"音质", infoDepth:"位深 / 采样率", infoCodec:"编码", infoMode:"模式", spectrum:"频谱", spectrumHint:"频谱图 · 横轴时间 × 纵轴频率 · 颜色=幅度", spectrumCqt:"CQT 恒Q频谱", spectrumChroma:"色度图", apiV2:"v2 · DRM", apiV1:"v1 · 直连", apiFallbackV1:"v2 失败，已回退 v1" }
 };
 function loadFavorites() { try { const value=JSON.parse(localStorage.getItem("tiddl-player-favorites")||"[]"); return Array.isArray(value)?value.filter(entry=>entry&&entry.id).map(entry=>entry.kind==="album"?{...entry,_excluded:new Set(Array.isArray(entry.excluded)?entry.excluded:[])}:{...entry,kind:entry.kind||"track"}):[]; } catch { return []; } }
 function loadFollows() { try { const value=JSON.parse(localStorage.getItem("tiddl-player-follows")||"[]"); return Array.isArray(value)?value.filter(a=>a&&a.id&&a.id!=="undefined"):[]; } catch { return []; } }
