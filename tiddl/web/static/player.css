@@ -362,6 +362,12 @@ body.no-images img { display: none !important; }
   flex: 0 0 auto;
 }
 
+/* Atmos 徽标:与 explicit 徽标同构,配色区分(紫红色) */
+.atmos-badge {
+  color: #b06bff;
+  border-color: #b06bff;
+}
+
 /* ---- 实时频谱视图(右栏标签页):专业金紫渐变 + 坐标轴 ---- */
 .spectrum-view { padding: 10px 0; }
 .spectrum-wrap {

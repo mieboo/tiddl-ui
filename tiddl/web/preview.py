@@ -20,6 +20,8 @@ from tiddl.web.player import (
 
 def preview_item(item, item_type: str | None = None) -> dict:
     artists = ", ".join(artist.name for artist in getattr(item, "artists", []))
+    tags = set(getattr(getattr(item, "mediaMetadata", None), "tags", []) or [])
+    modes = set(getattr(item, "audioModes", []) or [])
     return {
         "id": str(item.id),
         "type": item_type or ("video" if item.__class__.__name__.lower().endswith("video") else "track"),
@@ -27,6 +29,7 @@ def preview_item(item, item_type: str | None = None) -> dict:
         "artist": artists,
         "duration": format_duration(item.duration),
         "explicit": bool(getattr(item, "explicit", False)),
+        "atmos": "DOLBY_ATMOS" in tags or "DOLBY_ATMOS" in modes,
     }
 
 
@@ -180,6 +183,8 @@ def search_result(item, resource_type: Literal["track", "album"]) -> dict:
     artists = _artist_dicts(item, prefer_singular=(resource_type == "album"))
     all_names = [a["name"] for a in artists] or [a.name for a in (getattr(item, "artists", []) or [])]
     cover_id = item.album.cover if resource_type == "track" else item.cover
+    tags = set(getattr(getattr(item, "mediaMetadata", None), "tags", []) or [])
+    modes = set(getattr(item, "audioModes", []) or [])
     return {
         "resource": f"{resource_type}/{item.id}",
         "type": resource_type,
@@ -188,6 +193,7 @@ def search_result(item, resource_type: Literal["track", "album"]) -> dict:
         "artists": artists,
         "cover": image_url(cover_id, 160),
         "explicit": bool(getattr(item, "explicit", False)),
+        "atmos": "DOLBY_ATMOS" in tags or "DOLBY_ATMOS" in modes,
     }
 
 
