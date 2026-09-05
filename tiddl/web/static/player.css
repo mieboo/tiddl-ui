@@ -187,6 +187,7 @@ body[data-route="player"] { overflow: hidden; }
 .player-shell.art-backdrop.lyrics-open .now-copy h2,
 .player-shell.art-backdrop.lyrics-open .now-copy p,
 .player-shell.art-backdrop.lyrics-open .seek-row,
+.player-shell.art-backdrop.lyrics-open .player-error,
 .player-shell.art-backdrop.lyrics-open .transport .icon-button,
 .player-shell.art-backdrop.lyrics-open .play-speed,
 .player-shell.art-backdrop.lyrics-open .play-quality,
