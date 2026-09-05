@@ -147,9 +147,7 @@ function spectrumDrawChroma() {
   const data = new Float32Array(_spectrumAnalyser.frequencyBinCount);
   _spectrumAnalyser.getFloatFrequencyData(data);
   const fftSize = _spectrumAnalyser.fftSize || 4096;
-  const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
   const fMin = 55, fMax = 9000; // 覆盖多八度
-  const DB_MIN = -96, DB_MAX = -12;
   scrollDraw(canvas, "chroma", (octx, W, H) => {
     // 每个频点归属最近的音高类(按 MIDI 音高 mod 12)
     const chroma = new Array(12).fill(0);
@@ -164,16 +162,39 @@ function spectrumDrawChroma() {
       chroma[pc] += Math.pow(10, data[i] / 10);
       counts[pc]++;
     }
+    // 帧内相对归一化:取 12 类中最大能量,其余按相对 dB 衰减——
+    // 避免真实音乐所有音高类都过阈值(全亮看不出音符)
+    const dbs = new Array(12).fill(-120);
+    let frameMax = -120;
     for (let pc = 0; pc < 12; pc++) {
-      const avg = counts[pc] ? chroma[pc] / counts[pc] : 0;
-      const db = avg > 0 ? 10 * Math.log10(avg) : DB_MIN;
-      const v = Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
+      if (counts[pc]) {
+        dbs[pc] = 10 * Math.log10(chroma[pc] / counts[pc]);
+        if (dbs[pc] > frameMax) frameMax = dbs[pc];
+      }
+    }
+    const RANGE = 14; // 相对最强音符的 dB 窗口:超出即暗
+    for (let pc = 0; pc < 12; pc++) {
+      const rel = dbs[pc] - frameMax; // <=0
+      const v = Math.max(0, Math.min(1, (rel + RANGE) / RANGE));
       const rowH = H / 12;
       const y = H - (pc + 1) / 12 * H;
-      octx.fillStyle = spectrumColor(Math.pow(v, 0.7));
+      octx.fillStyle = spectrumColor(Math.pow(v, 1.8)); // gamma 增强对比
       octx.fillRect(W - 1, y, 1, Math.max(1, Math.ceil(rowH)));
     }
   }, w, h);
+  // 左侧音名标签覆盖层(绘制在可见 canvas,不参与滚动)
+  const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const ctx2 = canvas.getContext("2d");
+  const labelW = 22;
+  ctx2.fillStyle = "rgba(12,13,16,0.85)";
+  ctx2.fillRect(0, 0, labelW, h);
+  ctx2.fillStyle = "rgba(255,255,255,0.5)";
+  ctx2.font = "9px ui-monospace, monospace";
+  ctx2.textAlign = "left";
+  for (let pc = 0; pc < 12; pc++) {
+    const y = h - (pc + 0.5) / 12 * h;
+    ctx2.fillText(NOTES[pc], 3, y + 3);
+  }
 }
 // 填充坐标轴 DOM:左频率轴、顶/底时间轴、右 dB 轴、色度图音名
 function spectrumRenderAxes() {
