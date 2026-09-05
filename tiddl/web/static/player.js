@@ -31,7 +31,7 @@ function spectrumSetup() {
 const SPECTRUM_STOPS = [
   [0.00, 12, 12, 14], [0.12, 16, 24, 80], [0.28, 24, 90, 150],
   [0.45, 40, 170, 120], [0.62, 210, 210, 40], [0.80, 230, 120, 30],
-  [0.94, 220, 40, 40], [1.00, 250, 250, 250],
+  [0.94, 220, 40, 40], [1.00, 255, 225, 140], // 暖黄峰值(避免纯白刺眼)
 ];
 function spectrumColor(v) {
   const t = Math.max(0, Math.min(1, v));
@@ -114,26 +114,39 @@ function spectrumDrawCqt() {
   const data = new Float32Array(_spectrumAnalyser.frequencyBinCount);
   _spectrumAnalyser.getFloatFrequencyData(data);
   const fftSize = _spectrumAnalyser.fftSize || 4096;
-  // 60 个对数频带(CQT 风格),y=频带索引
-  const bands = 60;
+  // 真 CQT:每八度 BPI 个频带,频率分辨率随频率增长(恒 Q)
+  const BPI = 36;                    // 每八度 36 带(≈半音 x3)
   const fMin = 27.5, fMax = 16000;
-  const DB_MIN = -96, DB_MAX = -12;
+  const bands = Math.ceil(Math.log2(fMax / fMin) * BPI); // ~330
+  const binHz = sampleRate / fftSize;
+  const DB_MIN = -96;
+  const FLOOR = -70; // 绝对下限:静音帧全暗
   scrollDraw(canvas, "cqt", (octx, W, H) => {
+    // 帧内相对归一化:以最强频带为基准,其余按相对 dB 衰减,
+    // 真实音乐的低频能量不再压垮全图(与 Chroma 同理)
+    const dbs = new Array(bands).fill(DB_MIN);
+    let frameMax = DB_MIN;
     for (let b = 0; b < bands; b++) {
-      const f0 = fMin * Math.pow(fMax / fMin, b / bands);
-      const f1 = fMin * Math.pow(fMax / fMin, (b + 1) / bands);
-      const bin0 = Math.round(f0 / (sampleRate / fftSize));
-      const bin1 = Math.max(bin0 + 1, Math.round(f1 / (sampleRate / fftSize)));
-      // 频带内能量聚合(RMS)
+      const f0 = fMin * Math.pow(2, b / BPI);
+      const f1 = fMin * Math.pow(2, (b + 1) / BPI);
+      const bin0 = Math.max(0, Math.round(f0 / binHz));
+      const bin1 = Math.max(bin0 + 1, Math.round(f1 / binHz));
       let sum = 0, n = 0;
       for (let i = bin0; i < bin1 && i < data.length; i++) {
         if (Number.isFinite(data[i])) { sum += Math.pow(10, data[i] / 10); n++; }
       }
-      const db = n ? 10 * Math.log10(sum / n) : DB_MIN;
-      const v = Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
+      if (n) {
+        dbs[b] = 10 * Math.log10(sum / n);
+        if (dbs[b] > frameMax) frameMax = dbs[b];
+      }
+    }
+    const RANGE = 30; // 相对最强频带的显示窗口(dB)
+    for (let b = 0; b < bands; b++) {
+      const rel = dbs[b] - frameMax; // <=0
+      const v = frameMax > FLOOR ? Math.max(0, Math.min(1, (rel + RANGE) / RANGE)) : 0;
       const bandH = H / bands;
       const y = H - (b + 1) / bands * H;
-      octx.fillStyle = spectrumColor(Math.pow(v, 0.7));
+      octx.fillStyle = spectrumColor(Math.pow(v, 0.9));
       octx.fillRect(W - 1, y, 1, Math.max(1, Math.ceil(bandH)));
     }
   }, w, h);
