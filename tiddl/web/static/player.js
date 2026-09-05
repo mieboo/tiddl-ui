@@ -131,9 +131,10 @@ function spectrumDrawCqt() {
       }
       const db = n ? 10 * Math.log10(sum / n) : DB_MIN;
       const v = Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
-      const y = H - (b + 0.5) / bands * H;
+      const bandH = H / bands;
+      const y = H - (b + 1) / bands * H;
       octx.fillStyle = spectrumColor(Math.pow(v, 0.7));
-      octx.fillRect(W - 1, y - 1, 1, 1);
+      octx.fillRect(W - 1, y, 1, Math.max(1, Math.ceil(bandH)));
     }
   }, w, h);
 }
@@ -167,9 +168,10 @@ function spectrumDrawChroma() {
       const avg = counts[pc] ? chroma[pc] / counts[pc] : 0;
       const db = avg > 0 ? 10 * Math.log10(avg) : DB_MIN;
       const v = Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
-      const y = H - (pc + 0.5) / 12 * H;
+      const rowH = H / 12;
+      const y = H - (pc + 1) / 12 * H;
       octx.fillStyle = spectrumColor(Math.pow(v, 0.7));
-      octx.fillRect(W - 1, y - 1, 1, 1);
+      octx.fillRect(W - 1, y, 1, Math.max(1, Math.ceil(rowH)));
     }
   }, w, h);
 }
