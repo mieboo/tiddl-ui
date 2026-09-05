@@ -991,7 +991,9 @@ async function playIndex(index, cached=null) { if(!state.queue.length)return; if
       if (emeOnlyFail) { state.drmBroken = true; localStorage.setItem("tiddl-player-drm-broken","true"); }
       // 浏览器无法解码 FLAC-in-MSE(Firefox MP4 parser bug / Widevine CDM 不支持 FLAC):
       // 用 aac_only 重新 resolve 一次(AAC-LC),成功则继续 v2;仍失败才回退 v1。
-      const flacFail = !emeOnlyFail && /Unsupported media type|isTypeSupported|SourceBuffer|append|flac|codec/i.test(String((drmError && drmError.message) || ""));
+      // 正则含 Firefox 实际错误: "object not usable"(SourceBuffer 失效/audio error 3)、
+      // "Operation is not supported"(EME 拒绝 HE-AAC)、decode/InvalidStateError。
+      const flacFail = !emeOnlyFail && /Unsupported media type|isTypeSupported|SourceBuffer|append|flac|codec|usable|Operation is not supported|decode|InvalidStateError|MEDIA_ERR_DECODE/i.test(String((drmError && drmError.message) || ""));
       if (flacFail && !aacRetried) {
         aacRetried = true;
         if(window.ATPTrace)window.ATPTrace("v2.aac.retry",{msg:(drmError&&drmError.message)||String(drmError)});
