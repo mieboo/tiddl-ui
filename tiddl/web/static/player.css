@@ -371,7 +371,7 @@ body.no-images img { display: none !important; }
 }
 
 /* ---- 实时频谱视图(右栏标签页):专业金紫渐变 + 坐标轴 ---- */
-.spectrum-view { padding: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.spectrum-view { padding: 10px 0; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 /* 标题行 */
 .spectrum-title {
   font-size: 11px; font-weight: 600; color: var(--muted);
@@ -383,8 +383,8 @@ body.no-images img { display: none !important; }
   display: grid;
   grid-template-columns: 34px 1fr 30px;  /* 左轴 | 主图 | 右轴(dB) */
   grid-template-rows: 16px 1fr 16px;      /* 顶轴(时间) | 主图 | 底轴 */
-  height: 25%;                            /* 右栏 1/4 */
-  min-height: 120px;
+  flex: 1 1 25%;                         /* 右栏 1/4 */
+  min-height: 110px;
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
@@ -451,11 +451,11 @@ body.no-images img { display: none !important; }
 }
 /* 下方三部件:波形/CQT/色度图,均分剩余 3/4 */
 .spectrum-parts {
+  flex: 3 1 75%;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  height: 75%;
-  min-height: 200px;
 }
 .spectrum-part {
   display: flex; flex-direction: column;
