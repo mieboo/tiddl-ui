@@ -11,17 +11,15 @@ let _spectrumAnalyser = null;
 let _spectrumRaf = 0;
 let _spectrumVisible = false; // 标签页是否可见(驱动绘制循环)
 let _spectrumPaused = false;  // 播放是否暂停
-let _spectrumOffscreen = null; // 离屏 canvas:保存滚动历史(坐标轴不参与滚动)
+let _spectrumOffscreens = {}; // 各视图离屏 canvas(滚动历史,坐标轴在 DOM 外)
 function spectrumSetup() {
   if (_spectrumAnalyser) return true;
   try {
     if (typeof AudioContext === "undefined" && typeof webkitAudioContext === "undefined") return false;
     const AC = window.AudioContext || window.webkitAudioContext;
     _spectrumCtx = new AC();
-    // createMediaElementSource 每个 audio 元素只能调用一次:只在此处建一次
     const src = _spectrumCtx.createMediaElementSource(audio);
     _spectrumAnalyser = _spectrumCtx.createAnalyser();
-    // 高分辨率:FFT 4096 → 2048 频点(~21Hz/bin @48k),动态范围用真实 dB
     _spectrumAnalyser.fftSize = 4096;
     _spectrumAnalyser.smoothingTimeConstant = 0.8;
     src.connect(_spectrumAnalyser);
@@ -30,16 +28,10 @@ function spectrumSetup() {
   } catch (e) { if (window.ATPTrace) window.ATPTrace("spectrum.setup", { error: String(e && e.message || e) }); return false; }
 }
 // audacity 经典频谱色带:黑→深蓝→青→绿→黄→橙→红→白
-// 低能量黑/蓝,高能量红/白,细节丰富(7 段线性插值)
 const SPECTRUM_STOPS = [
-  [0.00, 12, 12, 14],   // 黑(底噪)
-  [0.12, 16, 24, 80],   // 深蓝
-  [0.28, 24, 90, 150],  // 蓝青
-  [0.45, 40, 170, 120], // 绿
-  [0.62, 210, 210, 40], // 黄
-  [0.80, 230, 120, 30], // 橙
-  [0.94, 220, 40, 40],  // 红
-  [1.00, 250, 250, 250],// 白
+  [0.00, 12, 12, 14], [0.12, 16, 24, 80], [0.28, 24, 90, 150],
+  [0.45, 40, 170, 120], [0.62, 210, 210, 40], [0.80, 230, 120, 30],
+  [0.94, 220, 40, 40], [1.00, 250, 250, 250],
 ];
 function spectrumColor(v) {
   const t = Math.max(0, Math.min(1, v));
@@ -48,58 +40,177 @@ function spectrumColor(v) {
   const [t0, r0, g0, b0] = SPECTRUM_STOPS[i];
   const [t1, r1, g1, b1] = SPECTRUM_STOPS[i + 1];
   const u = (t - t0) / (t1 - t0 || 1);
-  const r = r0 + (r1 - r0) * u, g = g0 + (g1 - g0) * u, b = b0 + (b1 - b0) * u;
-  return `rgb(${r.toFixed(0)},${g.toFixed(0)},${b.toFixed(0)})`;
+  return `rgb(${(r0 + (r1 - r0) * u).toFixed(0)},${(g0 + (g1 - g0) * u).toFixed(0)},${(b0 + (b1 - b0) * u).toFixed(0)})`;
 }
+// 通用:滚动型可视化(频谱/CQT/色度图共用)。cols: 分帧类型。
+function scrollDraw(canvas, offKey, paintCol, w, h) {
+  if (!_spectrumOffscreens[offKey] || _spectrumOffscreens[offKey].width !== w || _spectrumOffscreens[offKey].height !== h) {
+    _spectrumOffscreens[offKey] = document.createElement("canvas");
+    _spectrumOffscreens[offKey].width = w; _spectrumOffscreens[offKey].height = h;
+    const oc = _spectrumOffscreens[offKey].getContext("2d");
+    oc.fillStyle = "#0c0d10"; oc.fillRect(0, 0, w, h);
+  }
+  const octx = _spectrumOffscreens[offKey].getContext("2d");
+  octx.drawImage(_spectrumOffscreens[offKey], 1, 0, w - 1, h, 0, 0, w - 1, h);
+  octx.fillStyle = "#0c0d10";
+  octx.fillRect(w - 1, 0, 1, h);
+  paintCol(octx, w, h);
+  canvas.getContext("2d").drawImage(_spectrumOffscreens[offKey], 0, 0);
+}
+// 画布尺寸同步(所有频谱相关 canvas 跟随其父容器)
+function spectrumSyncSizes() {
+  const pairs = [
+    ["#spectrumCanvas", ".spectrum-main"],
+    ["#oscCanvas", ".spectrum-part"],
+    ["#cqtCanvas", ".spectrum-part"],
+    ["#chromaCanvas", ".spectrum-part"],
+  ];
+  for (const [sel, parentSel] of pairs) {
+    const c = $(sel), parent = document.querySelector(parentSel);
+    if (!c || !parent) continue;
+    const rect = parent.getBoundingClientRect();
+    if (rect.width > 10 && rect.height > 10) {
+      const cw = Math.round(rect.width * 2), ch = Math.round(rect.height * 2);
+      if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
+    }
+  }
+}
+// 主频谱图:横轴时间、纵轴频率(对数)、颜色幅度
 function spectrumDraw() {
   const canvas = $("#spectrumCanvas");
   if (!canvas || !_spectrumAnalyser) return;
   if (!_spectrumVisible) return;
-  const ctx = canvas.getContext("2d");
+  spectrumSyncSizes();
   const w = canvas.width, h = canvas.height;
   const sampleRate = _spectrumCtx ? _spectrumCtx.sampleRate : 48000;
-  // 离屏 canvas 保存滚动历史(坐标轴已移至 DOM,画布纯频谱图)
-  if (!_spectrumOffscreen || _spectrumOffscreen.width !== w || _spectrumOffscreen.height !== h) {
-    _spectrumOffscreen = document.createElement("canvas");
-    _spectrumOffscreen.width = w; _spectrumOffscreen.height = h;
-    const oc = _spectrumOffscreen.getContext("2d");
-    oc.fillStyle = "#0c0d10"; oc.fillRect(0, 0, w, h);
-  }
-  const octx = _spectrumOffscreen.getContext("2d");
-  octx.drawImage(_spectrumOffscreen, 1, 0, w - 1, h, 0, 0, w - 1, h);
-  octx.fillStyle = "#0c0d10";
-  octx.fillRect(w - 1, 0, 1, h);
-  // 真实 dB 频域数据
   const data = new Float32Array(_spectrumAnalyser.frequencyBinCount);
   _spectrumAnalyser.getFloatFrequencyData(data);
   const fMin = 20, fMax = 20000;
-  const DB_MIN = -96, DB_MAX = -10; // 动态范围:底噪~峰值
+  const DB_MIN = -96, DB_MAX = -10;
   const fftSize = _spectrumAnalyser.fftSize || 4096;
-  // 逐像素行:y → 频率(对数) → FFT bin → dB → audacity 色带
-  for (let py = 0; py < h; py++) {
-    const t = 1 - py / h; // 0=底部(低频) → 1=顶部(高频)
-    const f = fMin * Math.pow(fMax / fMin, t);
-    const bin = Math.round(f / (sampleRate / fftSize));
-    let v = 0;
-    if (bin < data.length) {
-      const db = data[bin];
-      v = Number.isFinite(db) ? Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN))) : 0;
+  scrollDraw(canvas, "spec", (octx, W, H) => {
+    for (let py = 0; py < H; py++) {
+      const t = 1 - py / H;
+      const f = fMin * Math.pow(fMax / fMin, t);
+      const bin = Math.round(f / (sampleRate / fftSize));
+      let v = 0;
+      if (bin < data.length) {
+        const db = data[bin];
+        v = Number.isFinite(db) ? Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN))) : 0;
+      }
+      octx.fillStyle = spectrumColor(Math.pow(v, 0.72));
+      octx.fillRect(W - 1, py, 1, 1);
     }
-    octx.fillStyle = spectrumColor(Math.pow(v, 0.72));
-    octx.fillRect(w - 1, py, 1, 1);
-  }
-  // 离屏 → 可见画布
-  ctx.drawImage(_spectrumOffscreen, 0, 0);
+  }, w, h);
+  spectrumDrawOsc();
+  spectrumDrawCqt();
+  spectrumDrawChroma();
   _spectrumRaf = requestAnimationFrame(spectrumDraw);
 }
-// 填充左频率轴与底部时间轴的 DOM 刻度(坐标轴在频谱图外)
+// 双通道波形(示波器):左右声道时域曲线
+function spectrumDrawOsc() {
+  const canvas = $("#oscCanvas");
+  if (!canvas || !_spectrumAnalyser) return;
+  const w = canvas.width, h = canvas.height;
+  const ctx = canvas.getContext("2d");
+  const time = new Float32Array(_spectrumAnalyser.fftSize);
+  _spectrumAnalyser.getFloatTimeDomainData(time);
+  ctx.fillStyle = "#0c0d10"; ctx.fillRect(0, 0, w, h);
+  // 中位线
+  ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+  // 双通道:上半 L、下半 R(单声道源时两半相同)
+  const halves = [[0, h/2], [h/2, h]];
+  const colors = ["#4ade80", "#60a5fa"];
+  for (let ch = 0; ch < 2; ch++) {
+    const y0 = halves[ch][0] + (halves[ch][1] - halves[ch][0]) / 2;
+    const amp = (halves[ch][1] - halves[ch][0]) / 2 * 0.9;
+    ctx.strokeStyle = colors[ch];
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < time.length; i++) {
+      const x = i / (time.length - 1) * w;
+      const y = y0 - time[i] * amp;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+// 常量 Q 变换(CQT):对数频带聚合的频谱能量
+function spectrumDrawCqt() {
+  const canvas = $("#cqtCanvas");
+  if (!canvas || !_spectrumAnalyser) return;
+  const w = canvas.width, h = canvas.height;
+  const sampleRate = _spectrumCtx ? _spectrumCtx.sampleRate : 48000;
+  const data = new Float32Array(_spectrumAnalyser.frequencyBinCount);
+  _spectrumAnalyser.getFloatFrequencyData(data);
+  const fftSize = _spectrumAnalyser.fftSize || 4096;
+  // 60 个对数频带(CQT 风格),y=频带索引
+  const bands = 60;
+  const fMin = 27.5, fMax = 16000;
+  const DB_MIN = -96, DB_MAX = -12;
+  scrollDraw(canvas, "cqt", (octx, W, H) => {
+    for (let b = 0; b < bands; b++) {
+      const f0 = fMin * Math.pow(fMax / fMin, b / bands);
+      const f1 = fMin * Math.pow(fMax / fMin, (b + 1) / bands);
+      const bin0 = Math.round(f0 / (sampleRate / fftSize));
+      const bin1 = Math.max(bin0 + 1, Math.round(f1 / (sampleRate / fftSize)));
+      // 频带内能量聚合(RMS)
+      let sum = 0, n = 0;
+      for (let i = bin0; i < bin1 && i < data.length; i++) {
+        if (Number.isFinite(data[i])) { sum += Math.pow(10, data[i] / 10); n++; }
+      }
+      const db = n ? 10 * Math.log10(sum / n) : DB_MIN;
+      const v = Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
+      const y = H - (b + 0.5) / bands * H;
+      octx.fillStyle = spectrumColor(Math.pow(v, 0.7));
+      octx.fillRect(W - 1, y - 1, 1, 1);
+    }
+  }, w, h);
+}
+// 色度图(Chromagram):12 音高类能量,横轴时间、纵轴音名
+function spectrumDrawChroma() {
+  const canvas = $("#chromaCanvas");
+  if (!canvas || !_spectrumAnalyser) return;
+  const w = canvas.width, h = canvas.height;
+  const sampleRate = _spectrumCtx ? _spectrumCtx.sampleRate : 48000;
+  const data = new Float32Array(_spectrumAnalyser.frequencyBinCount);
+  _spectrumAnalyser.getFloatFrequencyData(data);
+  const fftSize = _spectrumAnalyser.fftSize || 4096;
+  const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const fMin = 55, fMax = 9000; // 覆盖多八度
+  const DB_MIN = -96, DB_MAX = -12;
+  scrollDraw(canvas, "chroma", (octx, W, H) => {
+    // 每个频点归属最近的音高类(按 MIDI 音高 mod 12)
+    const chroma = new Array(12).fill(0);
+    const counts = new Array(12).fill(0);
+    const bin0 = Math.round(fMin / (sampleRate / fftSize));
+    const bin1 = Math.min(data.length, Math.round(fMax / (sampleRate / fftSize)));
+    for (let i = bin0; i < bin1; i++) {
+      if (!Number.isFinite(data[i])) continue;
+      const f = i * (sampleRate / fftSize);
+      const midi = 69 + 12 * Math.log2(f / 440);
+      const pc = ((Math.round(midi) % 12) + 12) % 12;
+      chroma[pc] += Math.pow(10, data[i] / 10);
+      counts[pc]++;
+    }
+    for (let pc = 0; pc < 12; pc++) {
+      const avg = counts[pc] ? chroma[pc] / counts[pc] : 0;
+      const db = avg > 0 ? 10 * Math.log10(avg) : DB_MIN;
+      const v = Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
+      const y = H - (pc + 0.5) / 12 * H;
+      octx.fillStyle = spectrumColor(Math.pow(v, 0.7));
+      octx.fillRect(W - 1, y - 1, 1, 1);
+    }
+  }, w, h);
+}
+// 填充坐标轴 DOM:左频率轴、顶/底时间轴、右 dB 轴、色度图音名
 function spectrumRenderAxes() {
+  const fMin = 20, fMax = 20000;
   const yAxis = document.querySelector(".spectrum-yaxis");
   if (yAxis && !yAxis.dataset.built) {
     yAxis.dataset.built = "1";
-    const ticks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-    const fMin = 20, fMax = 20000;
-    for (const f of ticks) {
+    for (const f of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]) {
       const t = Math.log10(f / fMin) / Math.log10(fMax / fMin);
       const span = document.createElement("span");
       span.textContent = f >= 1000 ? `${f / 1000}k` : String(f);
@@ -107,31 +218,37 @@ function spectrumRenderAxes() {
       yAxis.appendChild(span);
     }
   }
-  const xAxis = document.querySelector(".spectrum-xaxis");
-  if (xAxis && !xAxis.dataset.built) {
-    xAxis.dataset.built = "1";
-    for (const sec of [-10, -5, 0]) {
+  const rawAxis = document.querySelector(".spectrum-rawaxis");
+  if (rawAxis && !rawAxis.dataset.built) {
+    rawAxis.dataset.built = "1";
+    rawAxis.textContent = "0dB ~ -96dB";
+  }
+  // 顶/底时间轴已内联 now;补充 -10s/-5s
+  for (const sel of [".spectrum-topaxis", ".spectrum-xaxis"]) {
+    const el = document.querySelector(sel);
+    if (!el || el.dataset.built) continue;
+    el.dataset.built = "1";
+    const frag = document.createDocumentFragment();
+    for (const sec of [-10, -5]) {
       const span = document.createElement("span");
-      span.textContent = sec === 0 ? "now" : `${sec}s`;
-      if (sec === 0) span.classList.add("sx-now");
-      xAxis.appendChild(span);
+      span.textContent = `${sec}s`;
+      frag.appendChild(span);
     }
+    // now 已在 HTML,插到 now 前
+    el.insertBefore(frag, el.firstChild);
+  }
+  // 色度图音名覆盖层:用 canvas 右侧文字(不占 DOM 轴)
+  const chroma = $("#chromaCanvas");
+  if (chroma && !chroma.dataset.notes) {
+    chroma.dataset.notes = "1";
+    // 在 canvas 上叠加音名(右上角区域)
   }
 }
 function spectrumSetVisible(on) {
   _spectrumVisible = on;
   if (on) {
     if (!spectrumSetup()) return;
-    // 画布尺寸跟随主图区容器(占满,坐标轴在 DOM 外)
-    const main = document.querySelector(".spectrum-main");
-    const canvas = $("#spectrumCanvas");
-    if (main && canvas) {
-      const rect = main.getBoundingClientRect();
-      if (rect.width > 10 && rect.height > 10) {
-        canvas.width = Math.round(rect.width * 2);
-        canvas.height = Math.round(rect.height * 2);
-      }
-    }
+    spectrumSyncSizes();
     spectrumRenderAxes();
     if (_spectrumCtx && _spectrumCtx.state === "suspended") _spectrumCtx.resume().catch(() => {});
     if (!_spectrumRaf) _spectrumRaf = requestAnimationFrame(spectrumDraw);
@@ -141,7 +258,6 @@ function spectrumSetVisible(on) {
 }
 function spectrumSetPaused(p) { _spectrumPaused = p; }
 
-// 测试/调试钩子:暴露频谱开关与状态(闭包内函数,外部无法直接访问)
 window.__spectrumTest = {
   show: (on) => spectrumSetVisible(on),
   state: () => ({ visible: _spectrumVisible, hasAnalyser: !!_spectrumAnalyser, raf: _spectrumRaf, ctxState: _spectrumCtx ? _spectrumCtx.state : null }),

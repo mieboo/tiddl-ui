@@ -169,14 +169,30 @@
         <div id="infoView" class="info-view" hidden></div>
         <div id="lyrics" class="lyrics"><span data-i18n="noLyrics">Lyrics will appear here</span></div>
         <div id="spectrumView" class="spectrum-view" hidden>
+          <div class="spectrum-title" data-i18n="spectrum">Spectrum</div>
           <div class="spectrum-wrap">
+            <div class="spectrum-topaxis" aria-hidden="true"><span class="sx-now">now</span></div>
             <div class="spectrum-yaxis" aria-hidden="true"></div>
             <div class="spectrum-main">
-              <canvas id="spectrumCanvas" class="spectrum-canvas" width="640" height="400"></canvas>
+              <canvas id="spectrumCanvas" class="spectrum-canvas"></canvas>
             </div>
             <div class="spectrum-xaxis" aria-hidden="true"><span class="sx-now">now</span></div>
+            <div class="spectrum-rawaxis" aria-hidden="true"></div>
           </div>
-          <p class="spectrum-hint" data-i18n="spectrumHint">Real-time frequency analyzer</p>
+          <div class="spectrum-parts">
+            <div class="spectrum-part">
+              <div class="spectrum-part-title" data-i18n="spectrumOsc">Waveform</div>
+              <canvas id="oscCanvas" class="osc-canvas"></canvas>
+            </div>
+            <div class="spectrum-part">
+              <div class="spectrum-part-title" data-i18n="spectrumCqt">CQT</div>
+              <canvas id="cqtCanvas" class="cqt-canvas"></canvas>
+            </div>
+            <div class="spectrum-part">
+              <div class="spectrum-part-title" data-i18n="spectrumChroma">Chromagram</div>
+              <canvas id="chromaCanvas" class="chroma-canvas"></canvas>
+            </div>
+          </div>
         </div>
       </div>
     </aside>
